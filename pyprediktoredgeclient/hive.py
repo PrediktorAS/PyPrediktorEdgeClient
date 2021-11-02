@@ -1,11 +1,9 @@
-from __future__ import print_function
 import os
 import sys
 import clr
-
 sys.path.append(os.path.join(os.getcwd(), 'dlls'))
-
 clr.AddReference("HiveNetApi")
+
 import Prediktor
 
 def Instances():
@@ -47,7 +45,7 @@ class Hive:
 		return self.api.ConfigurationName
 
 	def __repr__(self):
-		return "<Apis.Hive instance: " + str(self) + ">"
+		return "<Apis.Hive instance: {}>".format(str(self))
 
 	def __len__(self):
 		return len(self.api.GetModules())
@@ -60,33 +58,30 @@ class Hive:
 
 	def modules(self):
 		"""Return a list containing all the modules in this hive instance"""
-		tmp = []
-		for obj in self.api.GetModules():
-			tmp.append(Module(self, obj))
-		return tmp
+		return [ Module(self, obj) for obj in self.api.GetModules() ]
 
 	def get_module(self, key):
 		"""Return the module with the specified name or index"""
 		objs = self.api.GetModules()
 		if isinstance(key, Module):
 			return key
+
 		if isinstance(key, int):
 			return Module(self, objs[key])
+
 		if isinstance(key, str):
 			for obj in self.api.GetModules():
 				if str(obj) == key:
 					return Module(self, obj)
-			raise Error("Invalid module name: '" + key + "'")
-		raise Error("Invalid index type: " + type(key).__name__)
+
+			raise Error("Invalid module name: ''".format(key))
+		raise Error("Invalid index type: {}".format(type(key).__name__))
 
 	def types(self):
 		"""Return a list containing the name of all known module+types. These
 		names can be used as input to Hive.add_module().
 		"""
-		tmp = []
-		for obj in self.api.ModuleTypes:
-			tmp.append(obj)
-		return tmp
+		return [ obj for obj in self.api.ModuleTypes ]
 
 	def add_module(self, type, name=None):
 		"""Create and return a new Hive.Module in the Hive.
@@ -100,7 +95,7 @@ class Hive:
 		obj = self.api.AddModule(type)
 		return Module(self, obj)
 
-		
+
 
 class Module:
 	"""Class used to access a specific module in an ApisHive instance. The
@@ -115,7 +110,7 @@ class Module:
 		return self.name()
 
 	def __repr__(self):
-		return "<Apis.Hive.Module: " + str(self) + ">"
+		return "<Apis.Hive.Module: >".format(str(self))
 
 	def __len__(self):
 		return len(self.api.GetItems())
@@ -131,10 +126,7 @@ class Module:
 
 	def items(self):
 		"""Return a list containing all the items in this module"""
-		tmp = []
-		for obj in self.api.GetItems():
-			tmp.append(Item(self, obj))
-		return tmp
+		return [ Item(self, obj) for obj in self.api.GetItems() ]
 
 	def get_item(self, key):
 		"""Return the item with the specified name or index"""
@@ -148,15 +140,12 @@ class Module:
 			for obj in self.api.GetItems():
 				if obj.Name == key:
 					return Item(self, obj)
-			raise Error("Invalid item name: '" + key + "'")
+			raise Error("Invalid item name: '{}'".format(key))
 
-		raise Error("Invalid index type: " + type(key).__name__)
+		raise Error("Invalid index type: {}".format(type(key).__name__))
 
 	def properties(self):
-		tmp = []
-		for obj in self.api.GetProperties():
-			tmp.append(Property(self, obj))
-		return tmp
+		return [ Property(self, obj) for obj in self.api.GetProperties() ]
 
 	def get_property(self, name):
 		props = {}
@@ -176,7 +165,7 @@ class Property:
 		return self.name() + "=" + str(self.value())
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Property: " + str(self) + ">"
+		return "<Apis.Hive.Module.Property: {}>".format(str(self))
 
 	def name(self):
 		return self.api.Name
@@ -200,7 +189,7 @@ class Item:
 		return self.name()
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Property: " + str(self) + ">"
+		return "<Apis.Hive.Module.Property: >".format(str(self))
 
 	def __len__(self):
 		return len(self.api.GetAttributes())
@@ -218,10 +207,7 @@ class Item:
 		return self['Value'].value()
 
 	def attrs(self):
-		tmp = []
-		for obj in self.api.GetAttributes():
-			tmp.append(Attr(self, obj))
-		return tmp
+		return [ Attr(self, obj) for obj in self.api.GetAttributes() ]
 
 	def get_attr(self, key):
 		"""Return the attr with the specified name or index"""
@@ -235,9 +221,9 @@ class Item:
 			for obj in self.api.GetAttributes():
 				if obj.Name == key:
 					return Attr(self, obj)
-			raise Error("Invalid attribute name: '" + key + "'")
+			raise Error("Invalid attribute name: '{}'".format(key))
 
-		raise Error("Invalid index type: " + type(key).__name__)
+		raise Error("Invalid index type: {}".format(type(key).__name__))
 
 
 class Attr:
@@ -246,10 +232,10 @@ class Attr:
 		self.api = api
 
 	def __str__(self):
-		return self.name() + "=" + str(self.value())
+		return "{}={}".format(self.name(), str(self.value()))
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Attr: " + str(self) + ">"
+		return "<Apis.Hive.Module.Attr: {}>".format(str(self))
 
 	def name(self):
 		return self.api.Name

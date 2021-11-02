@@ -14,3 +14,9 @@ or on macos:
 
 Install/update dependencies:  
 `pip install -r requirements.txt`
+
+## Installation
+To install, run this command: 
+```
+pip install git+https://github.com/PrediktorAS/PyPrediktorEdgeClient.git
+```
