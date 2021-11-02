@@ -1,7 +1,8 @@
 import os
 import sys
 import clr
-sys.path.append(os.path.join(os.getcwd(), 'dlls'))
+package_directory = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(package_directory, 'dlls'))
 clr.AddReference("HiveNetApi")
 
 import Prediktor

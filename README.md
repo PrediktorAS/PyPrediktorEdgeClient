@@ -20,3 +20,7 @@ To install, run this command:
 ```
 pip install git+https://github.com/PrediktorAS/PyPrediktorEdgeClient.git
 ```
+
+## Usage
+In your code, use:
+`from pyprediktoredgeclient import hive`
