@@ -3,19 +3,10 @@ import os
 import sys
 import clr
 
-
-#if '__name__' == '__main__':
-path = os.getcwd() + "\dlls"
-#apis_bin_path = r"C:\Users\dgo\source\repos\apis-foundation\Source\Shared\Bin64"
-#sys.path.append(apis_bin_path)
-#sentinel_bin_path = r"C:\Users\dgo\Source\Repos\apis-foundation\Source\Shared\Licensing\Sentinel\SentinelRMSCore\bin\Debug"
-#sys.path.append(sentinel_bin_path)
-#utilites_bin_path = r"C:\Users\dgo\Source\Repos\apis-foundation\Source\Assemblies\APIS NET Utilities\bin\Debug"
-sys.path.append(path)
+sys.path.append(os.path.join(os.getcwd(), 'dlls'))
 
 clr.AddReference("HiveNetApi")
 import Prediktor
-#import Prediktor 
 
 def Instances():
 	return Prediktor.APIS.Hive.HiveInstanceService.GetRegisteredInstances()
