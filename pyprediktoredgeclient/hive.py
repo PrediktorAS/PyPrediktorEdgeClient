@@ -43,7 +43,7 @@ class Hive:
 		return self.api.ConfigurationName
 
 	def __repr__(self):
-		return "<Apis.Hive instance: {}>".format(str(self))
+		return "<Apis.Hive instance: {}>".format(self)
 
 	def __len__(self):
 		return len(self.api.GetModules())
@@ -108,7 +108,7 @@ class Module:
 		return self.name()
 
 	def __repr__(self):
-		return "<Apis.Hive.Module: >".format(str(self))
+		return "<Apis.Hive.Module: >".format(self)
 
 	def __len__(self):
 		return len(self.api.GetItems())
@@ -160,10 +160,10 @@ class Property:
 		self.api = api
 
 	def __str__(self):
-		return self.name() + "=" + str(self.value())
+		return "{}={}".format(self.name(), self.value())
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Property: {}>".format(str(self))
+		return "<Apis.Hive.Module.Property: {}>".format(self)
 
 	def name(self):
 		return self.api.Name
@@ -187,7 +187,7 @@ class Item:
 		return self.name()
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Property: >".format(str(self))
+		return "<Apis.Hive.Module.Property: >".format(self)
 
 	def __len__(self):
 		return len(self.api.GetAttributes())
@@ -230,10 +230,10 @@ class Attr:
 		self.api = api
 
 	def __str__(self):
-		return "{}={}".format(self.name(), str(self.value()))
+		return "{}={}".format(self.name(), self.value())
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Attr: {}>".format(str(self))
+		return "<Apis.Hive.Module.Attr: {}>".format(self)
 
 	def name(self):
 		return self.api.Name
