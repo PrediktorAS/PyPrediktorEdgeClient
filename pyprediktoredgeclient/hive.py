@@ -1,9 +1,9 @@
 import os
 import sys
-import clr
+from clr import System
 package_directory = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(package_directory, 'dlls'))
-clr.AddReference("HiveNetApi")
+dll_directory = os.path.join(package_directory, 'dlls')
+System.Reflection.Assembly.LoadFile(os.path.join(dll_directory, 'HiveNetApi.dll'))
 
 import Prediktor
 
@@ -38,9 +38,7 @@ class Hive:
 		server_name: optional name of the server hostting the instance (default is None, i.e. "localhost")
 		"""
 		self.api = Prediktor.APIS.Hive.Hive.CreateServer(instance_name, server_name)
-		self._modtypes = {}
-		for obj in self.api.ModuleTypes:
-			self._modtypes[str(obj)] = obj
+		self._modtypes = { str(obj):obj for obj in self.api.ModuleTypes }
 
 	def __str__(self):
 		return self.api.ConfigurationName
