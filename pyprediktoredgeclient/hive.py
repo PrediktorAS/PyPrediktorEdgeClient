@@ -1,9 +1,8 @@
 import os
 import sys
 from clr import System
-package_directory = os.path.dirname(os.path.abspath(__file__))
-dll_directory = os.path.join(package_directory, 'dlls')
-System.Reflection.Assembly.LoadFile(os.path.join(dll_directory, 'HiveNetApi.dll'))
+package_directory = os.path.dirname(__file__)
+System.Reflection.Assembly.LoadFile(os.path.join(package_directory, 'dlls', 'HiveNetApi.dll'))
 
 import Prediktor
 

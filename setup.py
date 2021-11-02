@@ -12,7 +12,7 @@ setup(
         # And include any *.msg files found in the "hello" package, too:
         # "hello": ["*.msg"],
     },
-    version='0.1.2',
+    version='0.1.3',
     description='A Python library to talk to Prediktor APIS/EDGE',
     author='Prediktor',
     license='MIT',
