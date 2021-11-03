@@ -1,7 +1,15 @@
 import os
-from clr import System
-package_directory = os.path.dirname(__file__)
-System.Reflection.Assembly.LoadFile(os.path.join(package_directory, 'dlls', 'HiveNetApi.dll'))
+import sys
+import clr
+
+module_directory = os.path.dirname(__file__)
+dll_directory = os.path.join(module_directory, 'dlls')
+sys.path.append(dll_directory)
+
+try:
+	clr.AddReference('HiveNetApi')
+except Exception as e:
+	raise Exception("DLLS: {} Not found".format(dll_directory), e.args)
 
 import Prediktor
 
