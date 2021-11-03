@@ -17,10 +17,7 @@ for f in ['ApisNetUtilities.dll', 'HiveNetApi.dll', 'Microsoft.Win32.Registry.dl
 		raise Exception("DLL {} is not present".format(f))
 
 
-try:
-	System.Reflection.Assembly.LoadFile(pkg_resources.resource_stream(__name__, "dlls/HiveNetApi.dll"))
-except Exception as e:
-	raise Exception("DLLS: {} Not found", e.args)
+System.Reflection.Assembly.LoadFile(pkg_resources.resource_filename(__name__, "dlls/HiveNetApi.dll"))
 
 import Prediktor
 
