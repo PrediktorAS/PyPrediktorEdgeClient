@@ -1,13 +1,27 @@
 import os
 import sys
-import clr
+import pkg_resources
+from clr import System
 
 module_directory = os.path.dirname(__file__)
-dll_directory = os.path.join(module_directory, 'dlls')
-sys.path.append(dll_directory)
+dll_directory = pkg_resources.resource_string(__name__, "dlls")
+
+# Check for the DLLS
+if not pkg_resources.resource_exists(__name__, "dlls"):
+	raise Exception("DLLS Not present in folder {}".format(dll_directory))
+
+# Check that it is a folder
+if not pkg_resources.resource_isdir(__name__, "dlls"):
+	raise Exception("DLLS is not a folder {}".format(dll_directory))
+
+# Check each file
+for f in ['ApisNetUtilities.dll', 'HiveNetApi.dll', 'Microsoft.Win32.Registry.dll', 'netstandard.dll', 'Prediktor.Log.dll', 'SentinelRMSCore.dll']:
+	if not pkg_resources.resource_exists(__name__, "dlls/{}".format(f)):
+		raise Exception("DLL {} is not present in {}".format(f, dll_directory))
+
 
 try:
-	clr.AddReference('HiveNetApi')
+	System.Reflection.Assembly.LoadFile(pkg_resources.resource_stream(__name__, "dlls/HiveNetApi.dll"))
 except Exception as e:
 	raise Exception("DLLS: {} Not found".format(dll_directory), e.args)
 
