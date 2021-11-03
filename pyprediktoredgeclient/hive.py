@@ -1,5 +1,4 @@
 import os
-import sys
 from clr import System
 package_directory = os.path.dirname(__file__)
 System.Reflection.Assembly.LoadFile(os.path.join(package_directory, 'dlls', 'HiveNetApi.dll'))
@@ -146,7 +145,6 @@ class Module:
 		return [ Property(self, obj) for obj in self.api.GetProperties() ]
 
 	def get_property(self, name):
-		props = {}
 		for obj in self.api.GetProperties():
 			if str(obj) == name:
 				return Property(self, obj)
