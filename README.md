@@ -3,6 +3,9 @@ A Python library to talk to Prediktor APIS/EDGE
 
 
 ## Installation
+IMPORTANT! You need to have installed [Mono](https://www.mono-project.com/) first
+
+
 To install, run this command: 
 ```
 pip install git+https://github.com/PrediktorAS/PyPrediktorEdgeClient.git
