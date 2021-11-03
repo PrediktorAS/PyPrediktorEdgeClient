@@ -12,12 +12,11 @@ if not pkg_resources.resource_isdir(__name__, "dlls"):
 	raise Exception("DLLS is not a folder")
 
 # Check each file
-for f in ['ApisNetUtilities.dll', 'HiveNetApi.dll', 'Microsoft.Win32.Registry.dll', 'netstandard.dll', 'Prediktor.Log.dll', 'SentinelRMSCore.dll']:
+for f in ['HiveNetApi.dll', 'ApisNetUtilities.dll', 'Microsoft.Win32.Registry.dll', 'netstandard.dll', 'Prediktor.Log.dll', 'SentinelRMSCore.dll']:
 	if not pkg_resources.resource_exists(__name__, "dlls/{}".format(f)):
 		raise Exception("DLL {} is not present".format(f))
-
-
-System.Reflection.Assembly.LoadFile(pkg_resources.resource_filename(__name__, "dlls/HiveNetApi.dll"))
+	
+	System.Reflection.Assembly.LoadFile(pkg_resources.resource_filename(__name__, "dlls/{}".format(f)))
 
 import Prediktor
 

@@ -8,7 +8,7 @@ setup(
     package_data={
         "": ["dlls/*.dll"]
     },
-    version='0.1.8',
+    version='0.1.9',
     description='A Python library to talk to Prediktor APIS/EDGE',
     author='Prediktor',
     license='MIT'
