@@ -3,10 +3,16 @@ A Python library to talk to Prediktor APIS/EDGE
 
 
 ## Installation
-IMPORTANT! You need to have installed [Mono](https://www.mono-project.com/) first
+IMPORTANT! This module is dependant on the PythonNet Module. If you are struggling with the install. Please try to install PythonNet on its own first:
+```
+pip install pythonnet
+```
+You'll also find more info on this at [The PythonNet Github page](https://github.com/pythonnet/pythonnet/wiki/Troubleshooting-on-Windows,-Linux,-and-OSX).
+
+On Linux and MacOS, you need to have installed [Mono](https://www.mono-project.com/) first
 
 
-To install, run this command: 
+To install this library, run this command: 
 ```
 pip install git+https://github.com/PrediktorAS/PyPrediktorEdgeClient.git
 ```
