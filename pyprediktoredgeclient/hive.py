@@ -49,6 +49,8 @@ class Hive:
 	each module of the instance.
 
 	A Hive instance is indexable by module name.
+
+	AL
 	"""
 
 	def __init__(self, instance_name=None, server_name=None):
