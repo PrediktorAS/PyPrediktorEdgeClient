@@ -7,39 +7,8 @@ import datetime
 import collections
 import System
 
-dlls = [
-	'HiveNetApi.dll',
-	'ApisNetUtilities.dll',
-	'Microsoft.Win32.Registry.dll',
-	'netstandard.dll',
-	'Prediktor.Log.dll',
-	'SentinelRMSCore.dll'
-	]
+from .util import Prediktor, AttrFlags, ItemVQT, Quality
 
-# Check for the DLLS
-if not pkg_resources.resource_exists(__name__, "dlls"):
-	raise Exception("DLLS Not present in folder")
-
-# Check that the DLL-reference is a folder
-if not pkg_resources.resource_isdir(__name__, "dlls"):
-	raise Exception("DLLS is not a folder")
-
-# Check and add  references to each dll-file
-for f in dlls:
-	if not pkg_resources.resource_exists(__name__, "dlls/{}".format(f)):
-		raise Exception("DLL {} is not present".format(f))
-
-	clr.AddReference(pkg_resources.resource_filename(__name__, "dlls/{}".format(f)))
-
-# At this point, we should be able to import "Prediktor" from the DLL
-import Prediktor
-
-def Instances():
-	return Prediktor.APIS.Hive.HiveInstanceService.GetRegisteredInstances()
-
-AttrFlags = Prediktor.APIS.Hive.Flags
-
-ItemVQT = collections.namedtuple('ItemVQT', 'item_id value quality time')
 
 class Error(Exception):
 	"""Generic exception used to report problems in Apis.py"""
