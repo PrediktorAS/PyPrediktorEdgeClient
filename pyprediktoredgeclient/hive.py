@@ -68,7 +68,7 @@ class Hive:
 		instance_name: optional name of the instance (default is None, i.e. the "ApisHive" instance)
 		server_name: optional name of the server hostting the instance (default is None, i.e. "localhost")
 		"""
-		self.api = Prediktor.APIS.Hive.Hive.CreateServer(instance_name, server_name or 'localhost')
+		self.api = Prediktor.APIS.Hive.Hive.CreateServer(instance_name, server_name)
 		self._modtypes = { str(obj):obj for obj in self.api.ModuleTypes }
 
 
@@ -76,7 +76,7 @@ class Hive:
 		return self.api.ConfigurationName
 
 	def __repr__(self):
-		return "<Apis.Hive instance: {}>".format(self)
+		return f"<Apis.Hive instance: {self}>"
 
 	def __len__(self):
 		return len(self.api.GetModules())
@@ -110,8 +110,8 @@ class Hive:
 				if str(obj) == key:
 					return Module(self, obj)
 
-			raise Error("Invalid module name: ''".format(key))
-		raise Error("Invalid index type: {}".format(type(key).__name__))
+			raise Error(f"Invalid module name: '{key}'")
+		raise Error(f"Invalid index type: {type(key).__name__}")
 
 	@property
 	def module_types(self):
@@ -142,11 +142,20 @@ class Hive:
 		return Module(self, obj)
 
 	def get_values(self, items, since=None):
+		"""
+		Get a list of value-quality-itmestamps from the connected hive
+
+		Arguments:
+		items: A list of Item objects of itemId's as stings
+		since (Optional): the oldest time of the values to retrieve
+		"""
 		if not since:
 			since = System.DateTime.MinValue
+
 		itemIds = [i.item_id if isinstance(i, Item) else str(i) for i in items]
 		handles = self.api.LookupItemHandles(itemIds)
 
+		#argument placeholders
 		h_out = System.Array[System.Int32]([])
 		v_out = System.Array[System.Object]([])
 		q_out = System.Array[System.UInt16]([])
@@ -206,9 +215,9 @@ class Module:
 			for obj in self.api.GetItems():
 				if obj.Name == key:
 					return Item(self, obj)
-			raise Error("Invalid item name: '{}'".format(key))
+			raise Error(f"Invalid item name: '{key}'")
 
-		raise Error("Invalid index type: {}".format(type(key).__name__))
+		raise Error(f"Invalid index type: {type(key).__name__}")
 
 	@property
 	def item_types(self):
@@ -254,17 +263,19 @@ class Property:
 		self.api = api
 
 	def __str__(self):
-		return "{}={}".format(self.name(), self.value())
+		return f"{self.name}={self.value}"
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Property: {}>".format(self)
+		return f"<Apis.Hive.Module.Property: {self}>"
 
+	@property
 	def name(self):
 		return self.api.Name
 
 	def desc(self):
 		return self.api.Description
 
+	@property
 	def value(self):
 		return self.api.Value
 
@@ -310,10 +321,12 @@ class Item:
 
 	@property
 	def name(self):
+		"The item name. Unique within a module"
 		return self.api.Name
 
 	@property
 	def item_id(self):
+		"The item-id. . Unique within a hive"
 		return self.api.ItemID
 
 
@@ -337,10 +350,10 @@ class Attr:
 		self.api = api
 
 	def __str__(self):
-		return "{}={}".format(self.name, self.value)
+		return "{self.name}={self.value}"
 
 	def __repr__(self):
-		return "<Apis.Hive.Module.Attr: {}>".format(self)
+		return f"<Apis.Hive.Module.Attr: {self}>"
 
 	@property
 	def name(self):
@@ -350,8 +363,6 @@ class Attr:
 	def flag(self):
 		return self.api.Flag
 
-	
-
 	def get_value(self):
 		v = self.api.Value
 		if self.flag & AttrFlags.Enumerated:
@@ -359,12 +370,11 @@ class Attr:
 			for i,val in enumerate(attr_enum.Values):
 				if val==v:
 					return attr_enum.Names[i]
-			raise Error(f"Enumerated property not found")
+			raise Error(f"Enumerated property with value '{v}' not found on {self.name}")
 		return v
 
 	def set_value(self, value):
 		if self.flag & AttrFlags.ReadOnly:
-			print(f'should fail, {self.flag}')
 			raise AttributeError(f"Attribute {self.name} on {self.item} is read only")
 
 		if self.flag & AttrFlags.Enumerated:
@@ -374,13 +384,13 @@ class Attr:
 					self.api.Value = attr_enum.Values[i]
 					break
 			else:
-				raise Error(f"Enumerated property not found")
+				raise Error(f"Enumerated property for {value} not found on attribute {self.name}.")
 		else:
 			try:
 				self.api.Value = value
 			except Exception as e:
+				#Wrap the exception from below in an Error. 
 				raise Error(f"Exception from Apis {e}")
-
 
 	value = property(get_value, set_value, doc="Access the property value")
 
