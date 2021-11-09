@@ -26,6 +26,8 @@ pip install git+https://github.com/PrediktorAS/PyPrediktorEdgeClient.git --user
 In your code, use:
 `from pyprediktoredgeclient import hive`
 
+You'll find examples in the example folder
+
 ## To set up a development env
 First create a venv for this project: cd `<this folder>`
 
