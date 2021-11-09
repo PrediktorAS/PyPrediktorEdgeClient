@@ -79,7 +79,17 @@ def to_pydatetime(dt):
 
 def fm_pydatetime(dt):
     "convert a python datetime object to .NET DateTime object"
-    return System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)    
+    return System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+
+
+class Error(Exception):
+	"""Generic exception used to report problems in Apis.py"""
+	def __init__(self, msg):
+		self.msg = msg
+
+	def __str__(self):
+		return self.msg
+
 
 class Quality(int):
     def __new__(cls, value=192):
