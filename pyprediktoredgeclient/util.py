@@ -3,8 +3,7 @@ import pkg_resources
 from datetime import datetime
 import functools
 import collections
-
-
+from typing import NamedTuple, Any, List
 
 import clr
 import System
@@ -40,8 +39,6 @@ def Instances():
 	return Prediktor.APIS.Hive.HiveInstanceService.GetRegisteredInstances()
 
 AttrFlags = Prediktor.APIS.Hive.Flags
-
-ItemVQT = collections.namedtuple('ItemVQT', 'item_id value quality time')
 
 
 
@@ -111,6 +108,32 @@ class Quality(int):
         if isinstance(name, collections.Sequence):
             functools.reduce(lambda a,b: a | b, map(Quality.factory, name))
        
+
+
+class VQT(NamedTuple):
+    """
+    A class for Value-Quality-Timestamp
+    """
+    value: Any
+    quality: Quality
+    time: datetime
+
+class ItemVQT(NamedTuple):
+    """
+    A class for item-id, value, quality and timestamp
+    """
+    item_id: str
+    value: Any
+    quality: Quality
+    time: datetime
+
+class Timeseries(NamedTuple):
+    """
+    A class for item-id, value, quality and timestamp
+    """
+    item_id: str
+    hs_database: str
+    timeseries: List[VQT]
 
 
 

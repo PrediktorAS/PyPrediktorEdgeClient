@@ -37,6 +37,6 @@ example_item.Waveform
 # %%
 some_items = [f"testworker.testitem{i}" for i in range(10, 40, 2)]
 for vqt in test_hive.get_values(some_items):
-    print(f"{vqt.item_id}: {vqt.value} ({vqt.quality}) @ {vqt.time.ToString()}")
+    print(f"{vqt.item_id}: {vqt.value} ({vqt.quality}) @ {vqt.time}")
 
 # %%
