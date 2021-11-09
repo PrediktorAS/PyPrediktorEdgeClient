@@ -7,16 +7,7 @@ import datetime
 import collections
 import System
 
-from .util import Prediktor, AttrFlags, ItemVQT, Quality, to_pydatetime
-
-
-class Error(Exception):
-	"""Generic exception used to report problems in Apis.py"""
-	def __init__(self, msg):
-		self.msg = msg
-
-	def __str__(self):
-		return self.msg
+from .util import Prediktor, Error, AttrFlags, ItemVQT, Quality, to_pydatetime
 
 
 class Hive:
