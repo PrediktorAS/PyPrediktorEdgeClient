@@ -7,7 +7,7 @@ import datetime
 import collections
 import System
 
-from .util import Prediktor, AttrFlags, ItemVQT, Quality
+from .util import Prediktor, AttrFlags, ItemVQT, Quality, to_pydatetime
 
 
 class Error(Exception):
@@ -136,7 +136,10 @@ class Hive:
 		last_read=System.DateTime.Now
 
 		void, h, v, q, t, err, check, tor = self.api.ReadItems(since, handles,  h_out, v_out, q_out, t_out, err_out, check_out, last_read)
-		return [ItemVQT(itemIds[i], v[i], q[i], t[i]) for i in range(len(h))]
+
+		pack_result = lambda i:ItemVQT(itemIds[i], v[i], Quality(q[i]), to_pydatetime(t[i]))
+
+		return [pack_result(i) for i in range(len(h))]
 
 class Module:
 	"""Class used to access a specific module in an ApisHive instance. The
