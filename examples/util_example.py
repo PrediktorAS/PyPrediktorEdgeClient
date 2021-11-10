@@ -1,5 +1,5 @@
 # %%
-from pyprediktoredgeclient import util
+from pyprediktoredgeclient import util, hiveservices
 # %%
 import datetime
 now = datetime.datetime(2021, 10, 19, 6, 43,56)
@@ -13,3 +13,9 @@ assert str(q)=='good'
 
 
 # %%
+for i in hiveservices.list_instances():
+    print(i, i.running, i.name, i.CLSID, i.prog_id)
+# %%
+test = hiveservices.get_instance('test')
+# %%
+test.running=False

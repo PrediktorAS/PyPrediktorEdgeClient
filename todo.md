@@ -5,6 +5,9 @@
 2. Proper handling of module properties, similar to item attributes
 2. Improved VQT/ItemVQT/TimeSeries
 3. Jupyter docbook w/tests
+4. Set/get external_items
+4. Add attributes to items
+4. Get global-attributes from an Hive
 4. Flexible loading of Apis-dlls
 4. honeystore
 5. timeseries
@@ -34,6 +37,29 @@ The data-classes for VQT/ItemVQT/TimeSeries should be based on typing.NamedTuple
 ## Jupyter docbook w/tests
 
 **HOLD**
+
+## Set/get external_items
+
+Add the property `.external_items` to the Item class. Typical usage:
+
+```python
+>>> my_variable = worker_module['my_var']
+>>> my_variable.external_items = ['opc1.inputvar', 'opc1.setpoint']
+>>> my_variable.Expression = 'ex1+ex2'
+
+```
+
+## Add attributes to items
+
+Introduce the possibility to add attributes to items from the global attribute list
+
+```python
+>>> my_variable = worker_module['my_var']
+>>> my_variable.add_attribute('Logger', True)
+>>> my_variable.add_attribute(Description4, "My description")
+>>> assert my_variable.Description4 == "My description"
+```
+
 
 ## Flexible loading of Apis-dlls
 
