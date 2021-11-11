@@ -1,3 +1,8 @@
+v0.4.0
+- Added a new hiveservice module with example code (incomplete)
+- Update and improvements of existing examples
+- Some points added to the 'to-do' list
+
 v0.3.0
 - Several changes to @Property for read-only
 - Direct lookup on attribute.value from items. Allows such code as
