@@ -8,6 +8,7 @@ import collections
 import System
 
 from .util import Prediktor, Error, AttrFlags, ItemVQT, Quality, to_pydatetime
+from .hiveservices import HiveInstance
 
 
 class Hive:
@@ -19,23 +20,23 @@ class Hive:
 	each module of the instance.
 
 	A Hive instance is indexable by module name.
-
-	AL
 	"""
 
-	def __init__(self, instance_name=None, server_name=None):
+	def __init__(self, instance=None, server_name=None):
 		"""Connect to a hive instance, starting the instance if needed.
 
 		Arguments:
 		instance_name: optional name of the instance (default is None, i.e. the "ApisHive" instance)
 		server_name: optional name of the server hostting the instance (default is None, i.e. "localhost")
 		"""
+		instance_name = instance.prog_id if isinstance(instance, HiveInstance) else instance
+
 		self.api = Prediktor.APIS.Hive.Hive.CreateServer(instance_name, server_name)
 		self._modtypes = { str(obj):obj for obj in self.api.ModuleTypes }
 
 
 	def __str__(self):
-		return self.api.ConfigurationName
+		return self.name
 
 	def __repr__(self):
 		return f"<Apis.Hive instance: {self}>"
@@ -51,6 +52,11 @@ class Hive:
 
 	def __iter__(self):
 		return self.api.GetModules()
+
+	@property
+	def name(self):
+		return self.api.ConfigurationName
+
 
 	@property
 	def modules(self):
@@ -80,7 +86,17 @@ class Hive:
 		"""Return a list containing the name of all known module+types. These
 		names can be used as input to Hive.add_module().
 		"""
-		return list(self.api.ModuleTypes)
+		return [ModuleType(self, mt) for mt in self._modtypes.values()]
+
+	def get_module_type(self, type_name):
+		"""Return a list containing the name of all known module+types. These
+		names can be used as input to Hive.add_module().
+		"""
+		for mt in self._modtypes.values():
+			if mt.ClassName == type_name:
+				return ModuleType(self,  mt)
+		else:
+			raise Error(f"Unknown module type {type_name}")
 
 
 	def add_module(self, module_type, name=None):
@@ -91,16 +107,14 @@ class Hive:
 		name: the name of the new module (default is None, i.e. use a generated name based on moduletype)
 		"""
 		if isinstance(module_type, str):
-			for mt in self.module_types:
-				if mt.ClassName == module_type:
-					module_type = mt
-					break
-			else:
-				raise ValueError(f"Unknown module type {module_type}")
+			module_type = self.get_module_type(module_type)
+		elif not isinstance(module_type, ModuleType):
+			raise Error(f"Invalid argument for module_type {type(module_type)}")
 
 		if name is not None:
-			module_type.set_InstanceName(name)
-		obj = self.api.AddModule(module_type)
+			module_type.api.set_InstanceName(name)
+
+		obj = self.api.AddModule(module_type.api)
 		return Module(self, obj)
 
 	def get_values(self, items, since=None):
@@ -131,6 +145,20 @@ class Hive:
 		pack_result = lambda i:ItemVQT(itemIds[i], v[i], Quality(q[i]), to_pydatetime(t[i]))
 
 		return [pack_result(i) for i in range(len(h))]
+
+class ModuleType:
+	"""
+	The class wraps an Apis module-type
+	"""
+	def __init__(self, hive, api):
+		self.hive = hive
+		self.api = api
+
+	class_name = property(lambda self:self.api.ClassName)
+	description = property(lambda self:self.api.Description)
+	GUID = property(lambda self:self.api.GUID)
+
+
 
 class Module:
 	"""Class used to access a specific module in an ApisHive instance. The

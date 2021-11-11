@@ -38,6 +38,12 @@ import Prediktor
 def Instances():
 	return Prediktor.APIS.Hive.HiveInstanceService.GetRegisteredInstances()
 
+def prog_id(name=None):
+    if name is None:
+        return Prediktor.APIS.Hive.HiveInstanceService.ProgIdDefaultInstance
+    prefix = Prediktor.APIS.Hive.HiveInstanceService.ProgId_Prefix
+    return f"{prefix}{name}"
+
 AttrFlags = Prediktor.APIS.Hive.Flags
 
 
