@@ -1,5 +1,7 @@
 __all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT'
 
+from itertools import chain
+from typing import Tuple
 import pkg_resources
 import clr
 import functools
@@ -7,9 +9,8 @@ import datetime
 import collections
 import System
 
-from .util import Prediktor, Error, AttrFlags, ItemVQT, Quality, to_pydatetime
+from .util import AttrFlags, Prediktor, Error, ItemVQT, Quality, to_pydatetime, BaseAttribute
 from .hiveservices import HiveInstance
-
 
 class Hive:
 	"""Class used to access one ApisHive instance. The instance is a
@@ -22,6 +23,7 @@ class Hive:
 	A Hive instance is indexable by module name.
 	"""
 
+
 	def __init__(self, instance=None, server_name=None):
 		"""Connect to a hive instance, starting the instance if needed.
 
@@ -29,11 +31,10 @@ class Hive:
 		instance_name: optional name of the instance (default is None, i.e. the "ApisHive" instance)
 		server_name: optional name of the server hostting the instance (default is None, i.e. "localhost")
 		"""
-		instance_name = instance.prog_id if isinstance(instance, HiveInstance) else instance
+		instance_name = instance.prog_id if hasattr(instance, 'prog_id') else instance
 
 		self.api = Prediktor.APIS.Hive.Hive.CreateServer(instance_name, server_name)
 		self._modtypes = { str(obj):obj for obj in self.api.ModuleTypes }
-
 
 	def __str__(self):
 		return self.name
@@ -51,12 +52,11 @@ class Hive:
 		return self.get_module(key).delete()
 
 	def __iter__(self):
-		return self.api.GetModules()
+		return iter(self.modules)
 
 	@property
 	def name(self):
 		return self.api.ConfigurationName
-
 
 	@property
 	def modules(self):
@@ -80,6 +80,25 @@ class Hive:
 
 			raise Error(f"Invalid module name: '{key}'")
 		raise Error(f"Invalid index type: {type(key).__name__}")
+
+
+	def _get_attrib(self):
+		return chain(self.api.GetSupportedAttributes(), self.api.GetGlobalAttributes())
+
+	def get_item_attributes(self):
+		"""
+		Get all attributes available to items in the system
+		"""
+		return [Attr(None, attr) for attr in self._get_attrib()]
+
+	def get_item_attribute(self, name):
+		"""
+		Get an attribute that can be used to set on an Item
+		"""
+		for attr in self._get_attrib():
+			if attr.Name == name:
+				return Attr(None, attr)
+		raise Error(f'Attribute {name} not found.')
 
 	@property
 	def module_types(self):
@@ -112,9 +131,10 @@ class Hive:
 			raise Error(f"Invalid argument for module_type {type(module_type)}")
 
 		if name is not None:
-			module_type.api.set_InstanceName(name)
+			module_type.api.InstanceName = name
 
 		obj = self.api.AddModule(module_type.api)
+		obj.ApplyCurrentRunningState()
 		return Module(self, obj)
 
 	def get_values(self, items, since=None):
@@ -166,8 +186,8 @@ class Module:
 	be accessed through the 'Module.api' member.
 	"""
 	def __init__(self, hive, api):
-		self.hive = hive
-		self.api = api
+		super().__setattr__('hive', hive)
+		super().__setattr__('api', api)
 
 	def __str__(self):
 		return self.name
@@ -186,6 +206,18 @@ class Module:
 
 	def __iter__(self):
 		return self.api.GetItems()
+
+
+	def __getattr__(self, key):
+		self.get_property(key).value
+
+	def __setattr__(self, key, value):
+		try:
+			prop = self.get_property(key)
+			prop.value = value
+		except Error:
+			super().__setattr__(key, value)
+
 
 	@property
 	def name(self):
@@ -217,18 +249,18 @@ class Module:
 		"""Return the available item types for this  module"""
 		return list(self.api.GetItemTypes())
 
+	def get_item_type(self, name):
+		for item_type in self.api.GetItemTypes():
+			if item_type.Name == name:
+				return item_type
+		raise Error(f'Unknown item type {name}')
 
 	def add_item(self, item_type, item_name):
 		"""Add a new item to the hive"""
 		if isinstance(item_type, str):
-			for it in self.item_types:
-				if it.Name==item_type:
-					item_type = it
-					break
-			else:
-				raise ValueError(f"unknown item type {item_type}")
+			item_type = self.get_item_type(item_type)
 		
-		template = it.GetNewItemTemplate(item_name)
+		template = item_type.GetNewItemTemplate(item_name)
 		item, item_error, attr_error, check = self.api.AddItems([template], None, None, None)
 		if check:
 			for i, a_e in enumerate(attr_error):
@@ -238,50 +270,35 @@ class Module:
 
 		return Item(self, item[0])
 
+	def _get_property(self, name):
+		for obj in self.api.GetProperties():
+			if obj.Name == name:
+				return obj
+		raise Error(f"property '{name}' not found")
+
 	@property
 	def properties(self):
 		return [ Property(self, obj) for obj in self.api.GetProperties() ]
 
 	def get_property(self, name):
-		for obj in self.api.GetProperties():
-			if str(obj) == name:
-				return Property(self, obj)
+		return Property(self, self._get_property(name))
 
 	def delete(self):
 		return self.api.DeleteModule()
 
-class Property:
+class Property(BaseAttribute):
 	def __init__(self, module, api):
 		self.module = module
 		self.api = api
 
-	def __str__(self):
-		return f"{self.name}={self.value}"
-
 	def __repr__(self):
 		return f"<Apis.Hive.Module.Property: {self}>"
-
-	@property
-	def name(self):
-		return self.api.Name
-
-	def desc(self):
-		return self.api.Description
-
-	@property
-	def value(self):
-		return self.api.Value
-
-	def update(self, value):
-		self.api.Value = value
 
 
 class Item:
 	def __init__(self, module, api):
-		super().__setattr__('module', module)
+		super().__setattr__('module', module)		#due to __settattr__
 		super().__setattr__('api', api)
-		# self.module = module
-		# self.api = api
 
 	def __str__(self):
 		return self.name
@@ -305,7 +322,6 @@ class Item:
 		try:
 			attr = self.get_attr(key)
 			attr.value = value
-
 		except Error:
 			super().__setattr__(key, value)
 
@@ -336,55 +352,73 @@ class Item:
 		raise Error(f"Invalid index: {repr(key)}")
 
 
+	def add_attr(self, attr, value=None):
+		"""
+		Add an attribute to an Apis Item.
 
-class Attr:
+		Arguments:
+		attr: an Attr (i.e from another item) or a string attribute name 
+		value: Optional value
+		"""
+
+		hive = self.module.hive
+		if isinstance(attr, str):
+			new_attr = hive.get_item_attribute(attr)
+		elif isinstance(attr, Attr):
+			new_attr = hive.get_item_attribute(attr.name)
+		else:
+			raise Error('Invalid type for attribute name')
+
+		if new_attr.flag ^ AttrFlags.ReadOnly:
+			if value is not None:
+				new_attr.value = value
+			elif isinstance(attr, Attr):
+				new_attr.value = attr.value
+
+		attr_array = System.Array[Prediktor.APIS.Hive.IAttribute]([new_attr.api])
+		set_attr = self.api.SetAttributes(attr_array)
+
+		return Attr(self, set_attr[0])
+
+	def get_externalitems(self):
+		"""
+		Get the external items from an item and return as a list of `Item`s
+		"""
+		modules = {mod.name:mod for mod in self.module.hive.modules}
+		def getitems():
+			for extitem in self.api.GetExternalItems():
+				yield Item(modules[extitem.Item.Module.Name], extitem.Item)
+		return list(getitems())
+
+	def set_externalitems(self, ext_items):
+		"""
+		Set external items.
+
+		Arguements:
+		ext_items: The external items, either as a string or as an Item 
+		"""
+		hive = self.module.hive
+		def normalize(items):
+			for item in items:
+				if isinstance(item, str):
+					yield item
+				elif hasattr(item, 'item_id'):
+					yield item.item_id
+				else:
+					raise Error(f"Item {repr(item)} can't be used")
+		items = hive.api.LookupItems(list(normalize(ext_items)))
+		new_ext_items = [item.GetAsExternalItem(i+1) for (i,item) in enumerate(items)]
+		self.api.SetExternalItems(new_ext_items)
+
+	external_items = property(get_externalitems,set_externalitems, doc="Set or get external items")
+
+
+
+
+class Attr(BaseAttribute):
 	def __init__(self, item, api):
 		self.item = item
 		self.api = api
 
-	def __str__(self):
-		return "{self.name}={self.value}"
-
 	def __repr__(self):
 		return f"<Apis.Hive.Module.Attr: {self}>"
-
-	@property
-	def name(self):
-		return self.api.Name
-
-	@property
-	def flag(self):
-		return self.api.Flag
-
-	def get_value(self):
-		v = self.api.Value
-		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.api.GetEnumeration()
-			for i,val in enumerate(attr_enum.Values):
-				if val==v:
-					return attr_enum.Names[i]
-			raise Error(f"Enumerated property with value '{v}' not found on {self.name}")
-		return v
-
-	def set_value(self, value):
-		if self.flag & AttrFlags.ReadOnly:
-			raise AttributeError(f"Attribute {self.name} on {self.item} is read only")
-
-		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.api.GetEnumeration()
-			for i,val in enumerate(attr_enum.Names):
-				if str(val)==value:
-					self.api.Value = attr_enum.Values[i]
-					break
-			else:
-				raise Error(f"Enumerated property for {value} not found on attribute {self.name}.")
-		else:
-			try:
-				self.api.Value = value
-			except Exception as e:
-				#Wrap the exception from below in an Error. 
-				raise Error(f"Exception from Apis {e}")
-
-	value = property(get_value, set_value, doc="Access the property value")
-
-

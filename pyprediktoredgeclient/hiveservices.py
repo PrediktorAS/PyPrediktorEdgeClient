@@ -72,6 +72,7 @@ def add_instance(name, as_service=True):
     """
     service = _create_instance_service()
     service.AddInstance(name, as_service)
+    return get_instance(name)
 
 
 class HiveInstance:

@@ -1,19 +1,25 @@
 # ToDo Feature list
 
-0. ToDo list (this)
-1. hiveservices
-2. Proper handling of module properties, similar to item attributes
-2. Improved VQT/ItemVQT/TimeSeries
-3. Jupyter docbook w/tests
-4. Set/get external_items
-4. Add attributes to items
-4. Get global-attributes from an Hive
-4. Flexible loading of Apis-dlls
-4. honeystore
-5. timeseries
-6. More demo cases
-7. Config load and restore
-6. itemquery
+- [-] ToDo list (this)
+- [x] hiveservices
+- [x] Proper handling of module properties, similar to item attributes
+- [x] Improved VQT/ItemVQT/TimeSeries
+- [-] Jupyter docbook w/tests
+- [x] Set/get external_items
+- [x] Add attributes to items
+- [x] Get global-attributes from an Hive
+- [ ] Flexible loading of Apis-dlls
+- [ ] honeystore
+- [ ] timeseries
+- [ ] More demo cases
+- [ ] Config load and restore
+- [ ] itemquery
+- [ ] chronical
+
+x Done
+
+-Started
+
 
 ## Hive services (hiveservices)
 
