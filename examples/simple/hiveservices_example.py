@@ -18,11 +18,11 @@ for instance in instance_list:
 # %% Grag the instance 'test' and  turn it on and then off (or visa-versa)
 pytestinstance = hiveservices.get_instance('pytestinstance')
 
-runstate = test.running
-test.running = not runstate
+runstate = pytestinstance.running
+pytestinstance.running = not runstate
 time.sleep(1.5)
-assert test.running != runstate
-test.running = runstate
+assert pytestinstance.running != runstate
+pytestinstance.running = runstate
 
 
 # %%

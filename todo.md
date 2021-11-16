@@ -8,7 +8,7 @@
 - [x] Set/get external_items
 - [x] Add attributes to items
 - [x] Get global-attributes from an Hive
-- [ ] Flexible loading of Apis-dlls
+- [x] Flexible loading of Apis-dlls
 - [ ] honeystore
 - [ ] timeseries
 - [ ] More demo cases

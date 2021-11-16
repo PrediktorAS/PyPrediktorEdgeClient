@@ -207,7 +207,6 @@ class Module:
 	def __iter__(self):
 		return self.api.GetItems()
 
-
 	def __getattr__(self, key):
 		self.get_property(key).value
 
@@ -217,7 +216,6 @@ class Module:
 			prop.value = value
 		except Error:
 			super().__setattr__(key, value)
-
 
 	@property
 	def name(self):
@@ -293,7 +291,6 @@ class Property(BaseAttribute):
 
 	def __repr__(self):
 		return f"<Apis.Hive.Module.Property: {self}>"
-
 
 class Item:
 	def __init__(self, module, api):
