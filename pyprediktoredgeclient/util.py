@@ -3,6 +3,8 @@ import pkg_resources
 from datetime import datetime
 import functools
 import collections
+import os
+import sys
 from typing import NamedTuple, Any, List
 
 import clr
@@ -12,28 +14,46 @@ dlls = [
     'HiveNetApi.dll',
     'ApisNetUtilities.dll',
     'Microsoft.Win32.Registry.dll',
-    'netstandard.dll',
+    #'netstandard.dll',
     'Prediktor.Log.dll',
     'SentinelRMSCore.dll'
     ]
 
-# Check for the DLLS
-if not pkg_resources.resource_exists(__name__, "dlls"):
-    raise Exception("DLLS Not present in folder")
 
-# Check that the DLL-reference is a folder
-if not pkg_resources.resource_isdir(__name__, "dlls"):
-    raise Exception("DLLS is not a folder")
+def _import():
+    if sys.platform == 'win32':
+        import winreg
+        _regkey = "SOFTWARE\Prediktor\Apis"
+        _reg = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\Prediktor\Apis", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
+        _loc, _type = winreg.QueryValueEx(_reg, 'HiveInstallRoot')
+        assert _type==winreg.REG_SZ, 'Wrong registry key type'
+        for dll in dlls:
+            pth = os.path.join(_loc, 'Bin64', dll)
+            clr.AddReference(pth)
+        return os.path.join(_loc, 'Bin64')
 
-# Check and add  references to each dll-file
-for f in dlls:
-    if not pkg_resources.resource_exists(__name__, "dlls/{}".format(f)):
-        raise Exception("DLL {} is not present".format(f))
+    # Check for the DLLS
+    if not pkg_resources.resource_exists(__name__, "dlls"):
+        raise Exception("DLLS Not present in folder")
 
-    clr.AddReference(pkg_resources.resource_filename(__name__, "dlls/{}".format(f)))
+    # Check that the DLL-reference is a folder
+    if not pkg_resources.resource_isdir(__name__, "dlls"):
+        raise Exception("DLLS is not a folder")
+
+    # Check and add  references to each dll-file
+    for f in dlls:
+        if not pkg_resources.resource_exists(__name__, f"dlls/{f}"):
+            raise Exception("DLL {} is not present".format(f))
+
+        clr.AddReference(pkg_resources.resource_filename(__name__, f"dlls/{f}"))
+
+    return pkg_resources.resource_string(__name__, "dlls")
+
+importlocation = _import()
 
 # At this point, we should be able to import "Prediktor" from the DLL
 import Prediktor
+
 
 def Instances():
 	return Prediktor.APIS.Hive.HiveInstanceService.GetRegisteredInstances()
@@ -45,7 +65,6 @@ def prog_id(name=None):
     return f"{prefix}{name}"
 
 AttrFlags = Prediktor.APIS.Hive.Flags
-
 
 
 OPC_quality = dict(
@@ -123,7 +142,6 @@ class Quality(int):
             return Quality(OPC_quality[name])
         if isinstance(name, collections.Sequence):
             functools.reduce(lambda a,b: a | b, map(Quality.factory, name))
-       
 
 
 class VQT(NamedTuple):
@@ -145,7 +163,7 @@ class ItemVQT(NamedTuple):
 
 class Timeseries(NamedTuple):
     """
-    A class for item-id, value, quality and timestamp
+    A class for item-id, and a sequence of (value, quality and timestamp) tuples
     """
     item_id: str
     hs_database: str

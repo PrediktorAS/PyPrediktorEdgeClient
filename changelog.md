@@ -1,3 +1,6 @@
+v0.6.0
+ - Flexible import of APISlibraries on win32. 
+
 v0.5.0
 - Added externalitem support
 - Direct property access to modules

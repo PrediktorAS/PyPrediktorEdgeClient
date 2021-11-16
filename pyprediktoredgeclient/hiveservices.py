@@ -46,7 +46,7 @@ def get_instance(name):
     """
     return HiveInstance(_get_instance(_create_instance_service(), name))    
 
-def remove_instance(inst):
+def remove_instance(instance):
     """
     Remove an instance.
 
@@ -54,13 +54,9 @@ def remove_instance(inst):
     inst: string or HiveInstance. the instance that should be removed
     """
     service = _create_instance_service()
-
-    if isinstance(inst, str):
-        inst = _get_instance(service, inst)
-    elif isinstance(inst, HiveInstance):
-        raise Error('Unsupported type for instance lookup')
-
-    service.RemoveInstance(inst.CLSID)
+    instance_name = instance.name if isinstance(instance, HiveInstance) else instance
+    instance = _get_instance(service, instance_name)
+    service.RemoveInstance(instance.CLSID)
 
 def add_instance(name, as_service=True):
     """
