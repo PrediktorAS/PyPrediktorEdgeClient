@@ -1,3 +1,10 @@
+v0.5.0
+- Added externalitem support
+- Direct property access to modules
+- Possibility to add new attributes to items
+- Bug fixes
+- Improved test-cases
+
 v0.4.0
 - Added a new hiveservice module with example code (incomplete)
 - Update and improvements of existing examples

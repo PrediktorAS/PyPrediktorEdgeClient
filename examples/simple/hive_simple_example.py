@@ -1,9 +1,10 @@
 # %% Do the imports and connect to the 'test' hive
 import datetime
 from pyprediktoredgeclient import hive
-test_hive = hive.Hive('Prediktor.ApisLoader.test')
-assert test_hive.name=='test'
-
+test_hive = hive.Hive('Prediktor.ApisLoader.pytestinstance')
+assert test_hive.name=='pytestinstance'
+# %%
+for mod in test_hive:print(mod.name)
 # %% Check if we have "ApisWorker" defined as a module-type
 mod_class_names = [mod_type.class_name for mod_type in test_hive.module_types]
 assert 'ApisWorker' in mod_class_names

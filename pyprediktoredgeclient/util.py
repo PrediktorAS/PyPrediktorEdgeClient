@@ -152,7 +152,48 @@ class Timeseries(NamedTuple):
     timeseries: List[VQT]
 
 
+class BaseAttribute:
+	def __str__(self):
+		return f"{self.name}={self.value}"
 
+	@property
+	def name(self):
+		return self.api.Name
+
+	@property
+	def flag(self):
+		return self.api.Flag
+
+	def get_value(self):
+		v = self.api.Value
+		if self.flag & AttrFlags.Enumerated:
+			attr_enum = self.api.GetEnumeration()
+			for i,val in enumerate(attr_enum.Values):
+				if val==v:
+					return attr_enum.Names[i]
+			raise Error(f"Enumerated property with value '{v}' not found on {self.name}")
+		return v
+
+	def set_value(self, value):
+		if self.flag & AttrFlags.ReadOnly:
+			raise AttributeError(f"Attribute {self.name} on {self.item} is read only")
+
+		if self.flag & AttrFlags.Enumerated:
+			attr_enum = self.api.GetEnumeration()
+			for i,val in enumerate(attr_enum.Names):
+				if str(val)==value:
+					self.api.Value = attr_enum.Values[i]
+					break
+			else:
+				raise Error(f"Enumerated property for {value} not found on attribute {self.name}.")
+		else:
+			try:
+				self.api.Value = value
+			except Exception as e:
+				#Wrap the exception from below in an Error. 
+				raise Error(f"Exception from Apis {e}")
+
+	value = property(get_value, set_value, doc="Access the property value")
 
 
 

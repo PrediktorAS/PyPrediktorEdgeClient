@@ -16,7 +16,7 @@ for instance in instance_list:
     assert instance.CLSID in uuids
 
 # %% Grag the instance 'test' and  turn it on and then off (or visa-versa)
-test = hiveservices.get_instance('test')
+pytestinstance = hiveservices.get_instance('pytestinstance')
 
 runstate = test.running
 test.running = not runstate
