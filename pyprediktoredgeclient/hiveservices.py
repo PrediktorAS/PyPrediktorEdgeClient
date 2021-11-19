@@ -115,3 +115,6 @@ class HiveInstance:
 
     running = property(_running, _set_running, doc="get or set the running state of the instance")
 
+    @property
+    def service(self):
+        return self.api.IsService
