@@ -1,4 +1,4 @@
-__all__ = 'nstance_identifiers', 'list_instances', 'get_instance', 'remove_instance', 'add_instance', 'HiveInstance'
+__all__ = 'instance_identifiers', 'list_instances', 'get_instance', 'remove_instance', 'add_instance', 'HiveInstance'
 
 from .util import Prediktor, Error
 import os
