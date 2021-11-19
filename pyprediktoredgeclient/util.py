@@ -19,18 +19,48 @@ dlls = [
     'SentinelRMSCore.dll'
     ]
 
+if sys.platform == 'win32':
+    import winreg
+
+    def hive_clsid(instance = None):
+        instance = "1" if instance is None else instance
+        path = f"Prediktor.ApisLoader.{instance}\\CLSID"
+        return winreg.QueryValue(winreg.HKEY_CLASSES_ROOT, path)
+
+    def hive_appid(instance = None):
+        path = "AppId\\ApisHive.exe"  if instance is None else f"AppId\\ApisHive.{instance}.exe"
+        key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, path, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
+        v, _ = winreg.QueryValueEx(key, "AppID")
+        return v
+
+    def hive_executable():
+        path = f"CLSID\\{hive_clsid()}\\LocalServer32"
+        v = winreg.QueryValue(winreg.HKEY_CLASSES_ROOT, path)
+        return v.strip('"')
+
+    def hive_bindir():
+        return os.path.dirname(hive_executable())
+
+    def hive_basedir():
+        tmp = os.path.dirname(hive_bindir())
+        if (os.path.basename(tmp).lower() == "dbg"):
+            tmp = os.path.dirname(tmp)
+        return os.path.dirname(tmp)
+
+    def hive_configdir(name = "ApisHive"):
+        return os.path.join(hive_basedir(), "Config", name)
+
+    def hive_chronicaldir(name = "ApisHive"):
+        return os.path.join(hive_basedir(), "Chronical", name)
+
 
 def _import():
     if sys.platform == 'win32':
-        import winreg
-        _regkey = "SOFTWARE\Prediktor\Apis"
-        _reg = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\Prediktor\Apis", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
-        _loc, _type = winreg.QueryValueEx(_reg, 'HiveInstallRoot')
-        assert _type==winreg.REG_SZ, 'Wrong registry key type'
+        dir = hive_bindir()
         for dll in dlls:
-            pth = os.path.join(_loc, 'Bin64', dll)
+            pth = os.path.join(dir, dll)
             clr.AddReference(pth)
-        return os.path.join(_loc, 'Bin64')
+        return dir
 
     # Check for the DLLS
     if not pkg_resources.resource_exists(__name__, "dlls"):
