@@ -541,15 +541,15 @@ class EndpointList:
 		self.hive = hive
 		self.api = api
 
-	# def __getitem__(self, key):
-	# 	if (isinstance(key, int)):
-	# 		return all[key]
-	# 	else:
-	# 		return super().__getitem__(key)
+	def __len__(self):
+		return len(self.all)
+
+	def __getitem__(self, key):
+		return all[key]
 
 	@property
 	def all(self):
-		return {e.Id:Endpoint(self, self.api.GetEndpointData(e.Id)) for e in self.api.GetApisEndpointInfos()}
+		return [Endpoint(self, self.api.GetEndpointData(e.Id)) for e in self.api.GetApisEndpointInfos()]
 
 	def add(self):
 		tmp = self.api.AddEndpoint()
