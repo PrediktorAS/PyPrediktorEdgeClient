@@ -96,6 +96,7 @@ def prog_id(name=None):
 
 AttrFlags = Prediktor.APIS.Hive.Flags
 
+RunState = Prediktor.APIS.Hive.ApisRunState
 
 OPC_quality = dict(
     bad = 0,

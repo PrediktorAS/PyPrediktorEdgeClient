@@ -59,12 +59,19 @@ class Hive:
 		return self.api.ConfigurationName
 
 	@property
+	def runstate(self):
+		return self.api.RunningState
+
+	@property
 	def modules(self):
 		"""Return a list containing all the modules in this hive instance"""
 		return [ Module(self, obj) for obj in self.api.GetModules() ]
 
 	def get_eventserver(self):
 		return EventServer(self, self.api.GetEventServer())
+
+	def get_endpoints(self):
+		return EndpointList(self, self.api.GetEndpointsConfig())
 
 	def get_module(self, key):
 		"""Return the module with the specified name or index"""
@@ -139,6 +146,17 @@ class Hive:
 		obj = self.api.AddModule(module_type.api)
 		obj.ApplyCurrentRunningState()
 		return Module(self, obj)
+
+	def find_module_index(self, name):
+		for i in range(len(self.modules)):
+			if self.modules[i].name.lower() == name.lower():
+				return i
+		raise Error(f"Module not found: {name}")
+
+	def get_module(self, key):
+		if isinstance(key, str):
+			key = self.find_module_index(key)
+		return self.modules[key]
 
 	def get_values(self, items, since=None):
 		"""
@@ -298,6 +316,8 @@ class Property(BaseAttribute):
 class Item:
 	def __init__(self, module, api):
 		super().__setattr__('module', module)		#due to __settattr__
+		if (api.Handle == -1):
+			api = module.get_item(api.Name).api
 		super().__setattr__('api', api)
 
 	def __str__(self):
@@ -514,3 +534,54 @@ class EventServer:
 			self.eventtype = eventtype
 			self.vt = vt
 			self.flags = flags
+
+class EndpointList:
+	"""Class used to access the EventServer (and Chronical) in an APIS HIVE instance"""
+	def __init__(self, hive, api):
+		self.hive = hive
+		self.api = api
+
+	# def __getitem__(self, key):
+	# 	if (isinstance(key, int)):
+	# 		return all[key]
+	# 	else:
+	# 		return super().__getitem__(key)
+
+	@property
+	def all(self):
+		return {e.Id:Endpoint(self, self.api.GetEndpointData(e.Id)) for e in self.api.GetApisEndpointInfos()}
+
+	def add(self):
+		tmp = self.api.AddEndpoint()
+		return Endpoint(self, self.api.GetEndpointData(tmp.Id))
+
+class Endpoint:
+	def __init__(self, eplist, api):
+		self.eplist = eplist
+		self.api = api
+		self.props = {p.Name:p for p in api.Properties}
+		self.writer = Prediktor.APIS.Hive.EndpointWriter(self.api.Id)
+
+	def __getitem__(self, key):
+		return self.props[key]
+
+	def __setitem__(self, key, value):
+		prop = self[key]
+		prop.Value = value
+		self.writer.AddPropVal(prop.Id, prop.Value)
+
+	def __len__(self):
+		return len(self.props)
+
+	def __iter__(self):
+		return self.props()
+
+	@property
+	def properties(self):
+		return self.props
+
+	def get_property(self, key):
+		return self.props[key]
+
+	def save(self):
+		self.eplist.api.WriteEndpointData(self.writer)
