@@ -42,7 +42,7 @@ if sys.platform == 'win32':
         return os.path.dirname(hive_executable())
 
     def hive_basedir():
-        tmp = os.path.dirname(hive_bindir())
+        tmp = hive_bindir()
         if (os.path.basename(tmp).lower() == "dbg"):
             tmp = os.path.dirname(tmp)
         return os.path.dirname(tmp)
@@ -129,14 +129,15 @@ OPC_quality = dict(
 
 OPC_quality_index = {v:k for (k,v) in OPC_quality.items()}
 
-def to_pydatetime(dt):
+def to_pydatetime(dt: System.DateTime):
     "convert a .NET DateTime to a python datetime object"
-    return datetime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second)
+    tmp = datetime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, dt.Millisecond * 1000)
 
-def fm_pydatetime(dt):
+def fm_pydatetime(dt: datetime):
     "convert a python datetime object to .NET DateTime object"
-    return System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
-
+    tmp = System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+    millis = int(dt.microsecond / 1000)
+    return tmp.AddMilliseconds(millis)
 
 class Error(Exception):
 	"""Generic exception used to report problems in Apis.py"""
@@ -230,7 +231,7 @@ class BaseAttribute:
 		if self.flag & AttrFlags.Enumerated:
 			attr_enum = self.api.GetEnumeration()
 			for i,val in enumerate(attr_enum.Names):
-				if str(val)==value:
+				if str(val).lower()==str(value).lower():
 					self.api.Value = attr_enum.Values[i]
 					break
 			else:
