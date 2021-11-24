@@ -473,72 +473,14 @@ class Attr(BaseAttribute):
 
 class EventServer:
 	"""Class used to access the EventServer (and Chronical) in an APIS HIVE instance"""
-	def __init__(self, hive, api):
-		self.hive = hive
-		self.api = api
-		self.browse_flags = Prediktor.APIS.Hive.EventSearchOptions
-	
-	def get_config(self):
-		result = {}
-		for obj in self.api.GetOptions():
-			result[obj.Name] = obj.Value
-		return result
-
-	def get_datatypes(self):
-		tmp = self.api.GetEventDataTypes()
-		result = {}
-		for i in tmp:
-			result[i.Datatype] = EventServer.Datatype(self, i.Datatype, i.Name)
-		return result
-
-	def get_eventtypes(self):
-		id = 1
-		result = {}
-		while (True):
-			try:
-				tmp = self.api.GetEventType(id)
-			except Prediktor.APIS.Hive.HiveException as e:
-				if (e.HResult != -536870906):
-					print(f"Unexpected error: {e}")
-				break
-			result[tmp.Id] = EventServer.EventType(self, tmp.Id, tmp.Name, tmp.ParentId, tmp.Flags)
-			id += 1
-		return result
-
-	def get_eventfields(self):
-		id = 1
-		result = {}
-		while (True):
-			try:
-				tmp = self.api.GetEventField(id)
-			except Prediktor.APIS.Hive.HiveException as e:
-				if (e.HResult != -536870906):
-					print(f"Unexpected error: {e}")
-				break
-			result[tmp.Id] = EventServer.EventField(self, tmp.Id, tmp.Name, tmp.EventTypeId, tmp.Datatype, tmp.Flags)
-			id += 1
-		return result
-
-	def browse(self, pattern, flags, max_count = 1000):
-		return self.api.FindSources(0, flags, pattern, max_count, None, None)
-
-	def query(self, starttime, endtime, eventsource, eventtype, filter, maxrows = 1000):
-		if isinstance(eventsource, Prediktor.APIS.Hive.EventSourcePath):
-			eventsource = eventsource.Id
-		list = Prediktor.APIS.Hive.EventServer.EventList()
-		fields = System.Array[System.Int32]([1,2,3,4,5,6,7,8])
-		batchsize = 65535
-		if (batchsize > maxrows):
-			batchsize = maxrows
-		qry = self.api.QueryFirst2(list, True, fm_pydatetime(starttime), fm_pydatetime(endtime), eventsource, eventtype, 0, 0, 0, 1000, filter, batchsize, fields)
-		more = qry.MoreData
-		while more and list.Count < maxrows:
-			more = self.api.QueryNext(qry.Handle)
-			count = list.Count
-		self.api.QueryDone(qry.Handle)
-		return list.Detach()
 
 	class Datatype:
+		def __init__(self, owner, id, name):
+			self.owner = owner
+			self.id = id
+			self.name = name
+
+	class EventSource:
 		def __init__(self, owner, id, name):
 			self.owner = owner
 			self.id = id
@@ -563,6 +505,72 @@ class EventServer:
 			self.eventtype = eventtype
 			self.vt = vt
 			self.flags = flags
+
+	def __init__(self, hive, api):
+		self.hive = hive
+		self.api = api
+		self.browse_flags = Prediktor.APIS.Hive.EventSearchOptions
+	
+	def get_config(self):
+		result = {}
+		for obj in self.api.GetOptions():
+			result[obj.Name] = obj.Value
+		return result
+
+	def get_datatypes(self) -> list[Datatype]:
+		tmp = self.api.GetEventDataTypes()
+		result = []
+		for i in tmp:
+			result.append(EventServer.Datatype(self, i.Datatype, i.Name))
+		return result
+
+	def get_eventtypes(self) -> list[EventType]:
+		id = 1
+		result = []
+		while (True):
+			try:
+				tmp = self.api.GetEventType(id)
+			except Prediktor.APIS.Hive.HiveException as e:
+				if (e.HResult != -536870906):
+					print(f"Unexpected error: {e}")
+				break
+			result.append(EventServer.EventType(self, tmp.Id, tmp.Name, tmp.ParentId, tmp.Flags))
+			id += 1
+		return result
+
+	def get_eventfields(self) -> list[EventField]:
+		id = 1
+		result = []
+		while (True):
+			try:
+				tmp = self.api.GetEventField(id)
+			except Prediktor.APIS.Hive.HiveException as e:
+				if (e.HResult != -536870906):
+					print(f"Unexpected error: {e}")
+				break
+			result.append(EventServer.EventField(self, tmp.Id, tmp.Name, tmp.EventTypeId, tmp.Datatype, tmp.Flags))
+			id += 1
+		return result
+
+	def browse(self, pattern, flags, max_count = 1000, parent=0) -> list[EventSource]:
+		tmp = self.api.FindSources(parent, flags, pattern, max_count, None, None)
+		return [EventServer.EventSource(self, s.Id, s.Path) for s in tmp]
+
+	def query(self, starttime, endtime, eventsource, eventtype, filter, maxrows = 1000):
+		if isinstance(eventsource, Prediktor.APIS.Hive.EventSourcePath):
+			eventsource = eventsource.Id
+		list = Prediktor.APIS.Hive.EventServer.EventList()
+		fields = System.Array[System.Int32]([1,2,3,4,5,6,7,8])
+		batchsize = 65535
+		if (batchsize > maxrows):
+			batchsize = maxrows
+		qry = self.api.QueryFirst2(list, True, fm_pydatetime(starttime), fm_pydatetime(endtime), eventsource, eventtype, 0, 0, 0, 1000, filter, batchsize, fields)
+		more = qry.MoreData
+		while more and list.Count < maxrows:
+			more = self.api.QueryNext(qry.Handle)
+			count = list.Count
+		self.api.QueryDone(qry.Handle)
+		return list.Detach()
 
 class EndpointList:
 	"""Class used to access the EventServer (and Chronical) in an APIS HIVE instance"""
