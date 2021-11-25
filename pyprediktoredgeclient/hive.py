@@ -481,18 +481,32 @@ class EventServer:
 			self.name = name
 
 	class EventSource:
-		def __init__(self, owner, id, name):
+		def __init__(self, owner, id, name, nodeid = None):
 			self.owner = owner
 			self.id = id
 			self.name = name
+			if nodeid is None:
+				all = owner.api.GetSourceAttributes(id)
+				for a in all:
+					if a.Id == owner.attributes["UA_NODEID"]:
+						nodeid = a.Value
+						break
+			self.nodeid = nodeid
 
 	class EventType:
-		def __init__(self, owner, id, name, parent, flags):
+		def __init__(self, owner, id, name, parent, flags, nodeid = None):
 			self.owner = owner
 			self.id = id
 			self.name = name
 			self.parent = parent
 			self.flags = flags
+			if nodeid is None:
+				all = owner.api.GetEventTypeAttributes(id)
+				for a in all:
+					if a.Id == owner.attributes["UA_NODEID"]:
+						nodeid = a.Value
+						break
+			self.nodeid = nodeid
 
 		def get_fields(self, inherited = False):
 			return self.owner.api.GetEventFields(self.id, inherited)
@@ -510,6 +524,7 @@ class EventServer:
 		self.hive = hive
 		self.api = api
 		self.browse_flags = Prediktor.APIS.Hive.EventSearchOptions
+		self.attributes = {a.Name:a.Id for a in api.GetAttributeTypes()}
 	
 	def get_config(self):
 		result = {}
