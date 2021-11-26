@@ -1,7 +1,7 @@
 __all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT'
 
 from itertools import chain
-from typing import Tuple
+from typing import Tuple, List
 import pkg_resources
 import clr
 import functools
@@ -532,14 +532,14 @@ class EventServer:
 			result[obj.Name] = obj.Value
 		return result
 
-	def get_datatypes(self) -> list[Datatype]:
+	def get_datatypes(self) -> List[Datatype]:
 		tmp = self.api.GetEventDataTypes()
 		result = []
 		for i in tmp:
 			result.append(EventServer.Datatype(self, i.Datatype, i.Name))
 		return result
 
-	def get_eventtypes(self) -> list[EventType]:
+	def get_eventtypes(self) -> List[EventType]:
 		id = 1
 		result = []
 		while (True):
@@ -553,7 +553,7 @@ class EventServer:
 			id += 1
 		return result
 
-	def get_eventfields(self) -> list[EventField]:
+	def get_eventfields(self) -> List[EventField]:
 		id = 1
 		result = []
 		while (True):
@@ -567,7 +567,7 @@ class EventServer:
 			id += 1
 		return result
 
-	def browse(self, pattern, flags, max_count = 1000, parent=0) -> list[EventSource]:
+	def browse(self, pattern, flags, max_count = 1000, parent=0) -> List[EventSource]:
 		tmp = self.api.FindSources(parent, flags, pattern, max_count, None, None)
 		return [EventServer.EventSource(self, s.Id, s.Path) for s in tmp]
 
