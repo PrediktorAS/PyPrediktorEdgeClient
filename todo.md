@@ -1,7 +1,7 @@
 # ToDo Feature list
 
 - [-] ToDo list (this)
-- [x] hiveservices
+- [x] [hiveservices](##hive-services)
 - [x] Proper handling of module properties, similar to item attributes
 - [x] Improved VQT/ItemVQT/TimeSeries
 - [-] Jupyter docbook w/tests
@@ -9,19 +9,20 @@
 - [x] Add attributes to items
 - [x] Get global-attributes from an Hive
 - [x] Flexible loading of Apis-dlls
-- [ ] honeystore
+- [x] honeystore
 - [ ] timeseries
 - [ ] More demo cases
 - [ ] Config load and restore
 - [ ] itemquery
 - [ ] chronical
+- [ ] common base classes
 
 x Done
 
 -Started
 
 
-## Hive services (hiveservices)
+## Hive services
 
 This module will contain functions to control the available hive-services. In addition add and remove of hive-services are possible
 
@@ -116,3 +117,7 @@ Some interesting demo-cases could be:
 * Pandas integration
 * Bokeh integration
 * Simple Web-api
+
+## Common base classes
+
+
