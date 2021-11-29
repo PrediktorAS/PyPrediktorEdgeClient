@@ -9,7 +9,7 @@ import datetime
 import collections
 import System
 
-from .util import AttrFlags, Prediktor, Error, ItemVQT, Quality, to_pydatetime, BaseAttribute
+from .util import AttrFlags, Prediktor, Error, ItemVQT, Quality, to_pydatetime, HiveAttribute
 from .hiveservices import HiveInstance
 
 class Hive:
@@ -24,16 +24,16 @@ class Hive:
 	"""
 
 
-	def __init__(self, instance=None, server_name=None):
+	def __init__(self, instance=None, host_name=None):
 		"""Connect to a hive instance, starting the instance if needed.
 
 		Arguments:
 		instance_name: optional name of the instance (default is None, i.e. the "ApisHive" instance)
-		server_name: optional name of the server hostting the instance (default is None, i.e. "localhost")
+		host_name: optional name of the server hostting the instance (default is None, i.e. "localhost")
 		"""
 		instance_name = instance.prog_id if hasattr(instance, 'prog_id') else instance
 
-		self.api = Prediktor.APIS.Hive.Hive.CreateServer(instance_name, server_name)
+		self.api = Prediktor.APIS.Hive.Hive.CreateServer(instance_name, host_name)
 		self._modtypes = { str(obj):obj for obj in self.api.ModuleTypes }
 
 	def __str__(self):
@@ -284,7 +284,7 @@ class Module:
 	def delete(self):
 		return self.api.DeleteModule()
 
-class Property(BaseAttribute):
+class Property(HiveAttribute):
 	def __init__(self, module, api):
 		self.module = module
 		self.api = api
@@ -412,10 +412,10 @@ class Item:
 
 
 
-class Attr(BaseAttribute):
+class Attr(HiveAttribute):
 	def __init__(self, item, api):
 		self.item = item
 		self.api = api
 
 	def __repr__(self):
-		return f"<Apis.Hive.Module.Attr: {self}>"
+		return f"<Apis.Hive.Item.Attr: {self}>"
