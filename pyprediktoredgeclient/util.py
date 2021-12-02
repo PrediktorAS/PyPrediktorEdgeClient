@@ -332,7 +332,7 @@ class BaseAttribute:
 	def get_value(self):
 		v = self.api.Value
 		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.get_enumeration()
+			attr_enum = self.api.GetEnumeration()
 			for i,val in enumerate(attr_enum.Values):
 				if val==v:
 					return attr_enum.Names[i]
@@ -344,7 +344,7 @@ class BaseAttribute:
 			raise AttributeError(f"Attribute {self.name} on {self.item} is read only")
 
 		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.get_enumeration()
+			attr_enum = self.api.GetEnumeration()
 			for i,val in enumerate(attr_enum.Names):
 				if str(val).lower()==str(value).lower():
 					self.api.Value = attr_enum.Values[i]
