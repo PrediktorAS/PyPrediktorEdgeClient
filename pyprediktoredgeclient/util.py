@@ -6,6 +6,8 @@ import collections
 import os
 import sys
 from typing import NamedTuple, Any, List
+import winreg
+from enum import Enum
 
 import clr
 import System
@@ -14,6 +16,7 @@ dlls = [
     'HiveNetApi.dll',
     'ApisNetUtilities.dll',
     'Microsoft.Win32.Registry.dll',
+    'HoneystoreNetApi.dll',
     #'netstandard.dll',
     'Prediktor.Log.dll',
     'SentinelRMSCore.dll'
@@ -54,38 +57,78 @@ if sys.platform == 'win32':
         return os.path.join(hive_basedir(), "Chronical", name)
 
 
-def _import():
-    if sys.platform == 'win32':
-        dir = hive_bindir()
-        for dll in dlls:
-            pth = os.path.join(dir, dll)
-            clr.AddReference(pth)
-        return dir
+imported_assemblies=[]
 
-    # Check for the DLLS
-    if not pkg_resources.resource_exists(__name__, "dlls"):
-        raise Exception("DLLS Not present in folder")
+def get_instance_CLSID(name=None):
+    try:
+        key = f"\\Prediktor.ApisLoader.{name or '1'}\\CLSID"
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, key) as regpth:
+            return regpth.QueryValue(regpth, None)
+    except WindowsError:
+        raise Error(f"Unknown instance name {name}")
 
-    # Check that the DLL-reference is a folder
-    if not pkg_resources.resource_isdir(__name__, "dlls"):
-        raise Exception("DLLS is not a folder")
+
+
+def get_install_dir():
+    """
+    Get the relevant registry keys from windows for the install location of apis
+    """
+
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"\CLSID\{51F92300-CA68-11d2-85C3-0000E8404A66}\LocalServer32") as reg:
+            pth = winreg.QueryValue(reg, None).strip('"')
+            return os.path.dirname(pth)
+    except:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Prediktor\Apis") as reg:
+            l, t = winreg.QueryValueEx(reg, "HiveInstallRoot")
+            return os.path.join(l, 'Bin64')
+
+def import_apis_asm():
+    """
+    Locate and import the APIS assemblies. The import process goes throught the following steps:
+    1. If the environment variable 'APIS_INSTALL_LOCATION' is defined - use that as the import location
+    2. If running on a windows platform check for possible, common installation locations
+    3. Install the packages from the install kit
+    """
+
+    loc = os.environ.get('APIS_INSTALL_LOCATION')
+
+    if loc is None and sys.platform == 'win32':
+        loc = get_install_dir()
+
+    if loc is None:
+
+        # Check for the DLLS
+        if not pkg_resources.resource_exists(__name__, "dlls"):
+            raise Exception("DLLS Not present in folder")
+
+        # Check that the DLL-reference is a folder
+        if not pkg_resources.resource_isdir(__name__, "dlls"):
+            raise Exception("DLLS is not a folder")
+
+        loc = pkg_resources.resource_string(__name__, "dlls")
+
 
     # Check and add  references to each dll-file
-    for f in dlls:
-        if not pkg_resources.resource_exists(__name__, f"dlls/{f}"):
-            raise Exception("DLL {} is not present".format(f))
+    for dll_name in dlls:
+        dll_path = os.path.join(loc, dll_name)
+        if not os.path.exists(dll_path):
+            raise Exception(f"DLL {dll_name} is not present")
+        clr.AddReference(dll_path)
+        imported_assemblies.append(dll_path)
 
-        clr.AddReference(pkg_resources.resource_filename(__name__, f"dlls/{f}"))
+    return loc
 
-    return pkg_resources.resource_string(__name__, "dlls")
+importlocation = import_apis_asm()
 
-importlocation = _import()
+
 
 # At this point, we should be able to import "Prediktor" from the DLL
 import Prediktor
 
 
-def Instances():
+def get_apis_instances():
 	return Prediktor.APIS.Hive.HiveInstanceService.GetRegisteredInstances()
 
 def prog_id(name=None):
@@ -98,36 +141,108 @@ AttrFlags = Prediktor.APIS.Hive.Flags
 
 RunState = Prediktor.APIS.Hive.ApisRunState
 
-OPC_quality = dict(
-    bad = 0,
-    badConfigurationError = 4,
-    badNotConnected = 8,
-    badDeviceFailure = 12,
-    badSensorFailure = 16,
-    badLastKnownValue = 20,
-    badCommFailure = 24,
-    badOutOfService = 28,
-    badWaitingForInitialData = 32,
-    uncertain = 64,
-    uncertainLastUsableValue = 68,
-    uncertainSensorNotAccurate = 80,
-    uncertainEUExceeded = 84,
-    uncertainSubNormal = 88,
-    good = 192,
-    goodLocalOverride = 216,
+class OPC_quality(Enum):
+    bad = 0
+    badConfigurationError = 4
+    badNotConnected = 8
+    badDeviceFailure = 12
+    badSensorFailure = 16
+    badLastKnownValue = 20
+    badCommFailure = 24
+    badOutOfService = 28
+    badWaitingForInitialData = 32
+    uncertain = 64
+    uncertainLastUsableValue = 68
+    uncertainSensorNotAccurate = 80
+    uncertainEUExceeded = 84
+    uncertainSubNormal = 88
+    good = 192
+    goodLocalOverride = 216
 
-    extraData = 65536,
-    interpolated = 131072,
-    raw = 262144,
-    calculated = 524288,
-    noBound = 1048576,
-    noData = 2097152,
-    dataLost = 4194304,
-    conversion = 8388608,
+    extraData = 65536
+    interpolated = 131072
+    raw = 262144
+    calculated = 524288
+    noBound = 1048576
+    noData = 2097152
+    dataLost = 4194304
+    conversion = 8388608
     partial = 16777216
-)
 
-OPC_quality_index = {v:k for (k,v) in OPC_quality.items()}
+
+OPC_quality_index = {v:k for (k,v) in OPC_quality.__members__.items()}
+
+
+class VariantType(Enum):
+	EMPTY = 0		# Indicates that a value was not specified.
+	NULL = 1		# Indicates a null value,similar to a null value in SQL.
+	I2 = 2			# Indicates a short integer.
+	I4 = 3			# Indicates a long integer.
+	R4 = 4			# Indicates a float value.
+	R8 = 5			# Indicates a double value.
+	CY = 6			# Indicates a currency value.
+	DATE = 7		# Indicates a DATE value.
+	BSTR = 8		# Indicates a BSTR string.
+	DISPATCH = 9	# Indicates an IDispatch pointer.
+	ERROR = 10		# Indicates an SCODE.
+	BOOL = 11		# Indicates a Boolean value.
+	VARIANT = 12	# Indicates a VARIANT far pointer.
+	UNKNOWN = 13	# Indicates an IUnknown pointer.
+	DECIMAL = 14	# Indicates a decimal value.
+	I1 = 16	    	# Indicates a char value.
+	UI1 = 17		# Indicates a byte.
+	UI2 = 18		# Indicates an unsignedshort.
+	UI4 = 19		# Indicates an unsignedlong.
+	I8 = 20 		# Indicates a 64-bit integer.
+	UI8 = 21		# Indicates an 64-bit unsigned integer.
+	INT = 22		# Indicates an integer value.
+	UINT = 23		# Indicates an unsigned integer value.
+	VOID = 24		# Indicates a C style void.
+	HRESULT = 25	# Indicates an HRESULT.
+	PTR = 26		# Indicates a pointer type.
+	SAFEARRAY = 27	# Indicates a SAFEARRAY. Not valid in a VARIANT.
+	CARRAY = 28 	# Indicates a C style array.
+	USERDEFINED = 29	# Indicates a user defined type.
+	LPSTR = 30		# Indicates a null-terminated string.
+	LPWSTR = 31 	# Indicates a wide string terminated by null.
+	RECORD = 36	    # Indicates a user defined type.
+	FILETIME = 64	# Indicates a FILETIME value.
+	BLOB = 65		# Indicates length prefixed bytes.
+	STREAM = 66	    # Indicates that the name of a stream follows.
+	STORAGE = 67	# Indicates that the name of a storage follows.
+	STREAMED_OBJECT = 68	# Indicates that a stream contains an object.
+	STORED_OBJECT = 69	# Indicates that a storage contains an object.
+	BLOB_OBJECT = 70	# Indicates that a blob contains an object.
+	CF = 71 		# Indicates the clipboard format.
+	CLSID = 72		# Indicates a class ID.
+	VECTOR = 4096	# Indicates a simple,counted array.
+	ARRAY = 8192	# Indicates a SAFEARRAY pointer.
+	BYREF = 16384   # Indicates that a value is a reference.
+
+
+class RecordType(Enum):
+	Uninitialized = 0		# Uninitialized value, indicating the RecordType has not not been set.
+	Sampled = 1			# Item value only is sampled, at a specific resolution. (No quality data is stored.)
+	SampledWithQuality = 2	# Item value and quality, is sampled at a specific resolution.
+	Eventbased = 3			# Item value, quality and timetamp, is stored at a free resolution.
+
+class RunningMode(Enum):
+	Online = 1			# The database is online in normal operation. Reading and writing can be done.
+	Admin = 2			# The database is in administrative mode. No r/w, properties can be changed.
+	Disabled = 5		# The database has been disabled. 
+	OnlineNoCache = 6	# The database is on-line without caching operation. Reading and imports can be done, no write	
+
+
+def get_enum_value(enum, key):
+	if isinstance(key, enum):
+		return key.value
+	elif isinstance(key, str):
+		for e in enum:
+			if e.name==key:
+				return e.value
+		raise KeyError(f'No match for {key} found in {enum}.')
+	raise Error('Unknown key type. Expected str or enum.')
+
 
 def to_pydatetime(dt: System.DateTime):
     "convert a .NET DateTime to a python datetime object"
@@ -204,7 +319,7 @@ class Timeseries(NamedTuple):
 
 class BaseAttribute:
 	def __str__(self):
-		return f"{self.name}={self.value}"
+		return self.name
 
 	@property
 	def name(self):
@@ -217,7 +332,7 @@ class BaseAttribute:
 	def get_value(self):
 		v = self.api.Value
 		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.api.GetEnumeration()
+			attr_enum = self.get_enumeration()
 			for i,val in enumerate(attr_enum.Values):
 				if val==v:
 					return attr_enum.Names[i]
@@ -229,7 +344,7 @@ class BaseAttribute:
 			raise AttributeError(f"Attribute {self.name} on {self.item} is read only")
 
 		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.api.GetEnumeration()
+			attr_enum = self.get_enumeration()
 			for i,val in enumerate(attr_enum.Names):
 				if str(val).lower()==str(value).lower():
 					self.api.Value = attr_enum.Values[i]
@@ -244,6 +359,18 @@ class BaseAttribute:
 				raise Error(f"Exception from Apis {e}")
 
 	value = property(get_value, set_value, doc="Access the property value")
+
+
+class HiveAttribute(BaseAttribute):
+	"""
+	Attribtes/properties for use in Hive-module propertiess and Hive Item attributes
+	"""
+	def __str__(self):
+		return f"{self.name}={self.value}"
+
+	def get_eunumeration(self):
+		return self.api.GetEnumeration()
+
 
 
 

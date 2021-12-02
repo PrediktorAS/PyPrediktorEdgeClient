@@ -1,3 +1,6 @@
+v0.7.0
+- Honeystore module added
+
 v0.6.0
  - Flexible import of APISlibraries on win32. 
 
