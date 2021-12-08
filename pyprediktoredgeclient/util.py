@@ -341,7 +341,7 @@ class BaseAttribute:
 
 	def set_value(self, value):
 		if self.flag & AttrFlags.ReadOnly:
-			raise AttributeError(f"Attribute {self.name} on {self.item} is read only")
+			raise AttributeError(f"Attribute {self.name} is read only")
 
 		if self.flag & AttrFlags.Enumerated:
 			attr_enum = self.api.GetEnumeration()
