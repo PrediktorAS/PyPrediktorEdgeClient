@@ -1,4 +1,4 @@
-__all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT'
+__all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT', 'EventServer'
 
 from itertools import chain
 from typing import Tuple, List
