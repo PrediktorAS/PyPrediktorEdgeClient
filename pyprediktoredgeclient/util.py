@@ -22,6 +22,40 @@ dlls = [
     'SentinelRMSCore.dll'
     ]
 
+if sys.platform == 'win32':
+    import winreg
+
+    def hive_clsid(instance = None):
+        instance = "1" if instance is None else instance
+        path = f"Prediktor.ApisLoader.{instance}\\CLSID"
+        return winreg.QueryValue(winreg.HKEY_CLASSES_ROOT, path)
+
+    def hive_appid(instance = None):
+        path = "AppId\\ApisHive.exe"  if instance is None else f"AppId\\ApisHive.{instance}.exe"
+        key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, path, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
+        v, _ = winreg.QueryValueEx(key, "AppID")
+        return v
+
+    def hive_executable():
+        path = f"CLSID\\{hive_clsid()}\\LocalServer32"
+        v = winreg.QueryValue(winreg.HKEY_CLASSES_ROOT, path)
+        return v.strip('"')
+
+    def hive_bindir():
+        return os.path.dirname(hive_executable())
+
+    def hive_basedir():
+        tmp = hive_bindir()
+        if (os.path.basename(tmp).lower() == "dbg"):
+            tmp = os.path.dirname(tmp)
+        return os.path.dirname(tmp)
+
+    def hive_configdir(name = "ApisHive"):
+        return os.path.join(hive_basedir(), "Config", name)
+
+    def hive_chronicaldir(name = "ApisHive"):
+        return os.path.join(hive_basedir(), "Chronical", name)
+
 
 imported_assemblies=[]
 
@@ -105,6 +139,7 @@ def prog_id(name=None):
 
 AttrFlags = Prediktor.APIS.Hive.Flags
 
+RunState = Prediktor.APIS.Hive.ApisRunState
 
 class OPC_quality(Enum):
     bad = 0
@@ -209,14 +244,15 @@ def get_enum_value(enum, key):
 	raise Error('Unknown key type. Expected str or enum.')
 
 
-def to_pydatetime(dt):
+def to_pydatetime(dt: System.DateTime):
     "convert a .NET DateTime to a python datetime object"
-    return datetime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second)
+    tmp = datetime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, dt.Millisecond * 1000)
 
-def fm_pydatetime(dt):
+def fm_pydatetime(dt: datetime):
     "convert a python datetime object to .NET DateTime object"
-    return System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
-
+    tmp = System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+    millis = int(dt.microsecond / 1000)
+    return tmp.AddMilliseconds(millis)
 
 class Error(Exception):
 	"""Generic exception used to report problems in Apis.py"""
@@ -296,7 +332,7 @@ class BaseAttribute:
 	def get_value(self):
 		v = self.api.Value
 		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.get_enumeration()
+			attr_enum = self.api.GetEnumeration()
 			for i,val in enumerate(attr_enum.Values):
 				if val==v:
 					return attr_enum.Names[i]
@@ -305,12 +341,12 @@ class BaseAttribute:
 
 	def set_value(self, value):
 		if self.flag & AttrFlags.ReadOnly:
-			raise AttributeError(f"Attribute {self.name} on {self.item} is read only")
+			raise AttributeError(f"Attribute {self.name} is read only")
 
 		if self.flag & AttrFlags.Enumerated:
-			attr_enum = self.get_enumeration()
+			attr_enum = self.api.GetEnumeration()
 			for i,val in enumerate(attr_enum.Names):
-				if str(val)==value:
+				if str(val).lower()==str(value).lower():
 					self.api.Value = attr_enum.Values[i]
 					break
 			else:

@@ -1,7 +1,7 @@
-__all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT'
+__all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT', 'EventServer'
 
 from itertools import chain
-from typing import Tuple
+from typing import Tuple, List
 import pkg_resources
 import clr
 import functools
@@ -9,7 +9,7 @@ import datetime
 import collections
 import System
 
-from .util import AttrFlags, Prediktor, Error, ItemVQT, Quality, to_pydatetime, HiveAttribute
+from .util import AttrFlags, Prediktor, Error, ItemVQT, Quality, to_pydatetime, fm_pydatetime, HiveAttribute
 from .hiveservices import HiveInstance
 
 class Hive:
@@ -59,9 +59,22 @@ class Hive:
 		return self.api.ConfigurationName
 
 	@property
+	def runstate(self):
+		return self.api.RunningState
+
+	@property
 	def modules(self):
 		"""Return a list containing all the modules in this hive instance"""
 		return [ Module(self, obj) for obj in self.api.GetModules() ]
+
+	def get_eventserver(self):
+		return EventServer(self, self.api.GetEventServer())
+
+	def get_eventbroker(self):
+		return EventBroker(self)
+
+	def get_endpoints(self):
+		return EndpointList(self, self.api.GetEndpointsConfig())
 
 	def get_module(self, key):
 		"""Return the module with the specified name or index"""
@@ -118,7 +131,7 @@ class Hive:
 			raise Error(f"Unknown module type {type_name}")
 
 
-	def add_module(self, module_type, name=None):
+	def add_module(self, module_type, name=None, properties: dict = None):
 		"""Create and return a new Hive.Module in the Hive.
 
 		Arguments:
@@ -134,8 +147,23 @@ class Hive:
 			module_type.api.InstanceName = name
 
 		obj = self.api.AddModule(module_type.api)
-		obj.ApplyCurrentRunningState()
-		return Module(self, obj)
+		mod = Module(self, obj)
+		if not properties is None:
+			for k,v in properties.items():
+				mod.get_property(k).value = v
+		mod.api.ApplyCurrentRunningState()
+		return mod
+
+	def find_module_index(self, name):
+		for i in range(len(self.modules)):
+			if self.modules[i].name.lower() == name.lower():
+				return i
+		raise Error(f"Module not found: {name}")
+
+	def get_module(self, key):
+		if isinstance(key, str):
+			key = self.find_module_index(key)
+		return self.modules[key]
 
 	def get_values(self, items, since=None):
 		"""
@@ -253,7 +281,7 @@ class Module:
 				return item_type
 		raise Error(f'Unknown item type {name}')
 
-	def add_item(self, item_type, item_name):
+	def add_item(self, item_type, item_name, attrs: dict = None):
 		"""Add a new item to the hive"""
 		if isinstance(item_type, str):
 			item_type = self.get_item_type(item_type)
@@ -266,7 +294,11 @@ class Module:
 					t_attr = template.Attributes[i]
 					raise Error(f"Error setting {t_attr.Name}")
 
-		return Item(self, item[0])
+		item = Item(self, item[0])
+		if not attrs is None:
+			for k, v in attrs.items():
+				item.add_attr(k, v)
+		return item
 
 	def _get_property(self, name):
 		for obj in self.api.GetProperties():
@@ -295,6 +327,8 @@ class Property(HiveAttribute):
 class Item:
 	def __init__(self, module, api):
 		super().__setattr__('module', module)		#due to __settattr__
+		if (api.Handle == -1):
+			api = module.get_item(api.Name).api
 		super().__setattr__('api', api)
 
 	def __str__(self):
@@ -332,9 +366,15 @@ class Item:
 
 	@property
 	def item_id(self):
-		"The item-id. . Unique within a hive"
+		"The item-id. Unique within a hive"
 		return self.api.ItemID
 
+	@property
+	def itemtype(self):
+		"The item-type of the item"
+		for obj in self.module.api.GetItemTypes():
+			if (obj.ItemTypeID == self.api.ItemTypeID):
+				return obj
 
 	def get_attr(self, key):
 		"""Return the attr with the specified name or index"""
@@ -349,6 +389,16 @@ class Item:
 		raise Error(f"Invalid index: {repr(key)}")
 
 
+	def get_item_attribute(self, attrname: str):
+		for attr in self.api.GetAttributes():
+			if attr.Name == attrname:
+				return Attr(self, attr)
+		tmpl = self.itemtype.GetNewItemTemplate("")
+		for attr in tmpl.Attributes:
+			if attr.Name == attrname:
+				return Attr(self, attr)
+		return self.module.hive.get_item_attribute(attrname)
+
 	def add_attr(self, attr, value=None):
 		"""
 		Add an attribute to an Apis Item.
@@ -360,9 +410,9 @@ class Item:
 
 		hive = self.module.hive
 		if isinstance(attr, str):
-			new_attr = hive.get_item_attribute(attr)
+			new_attr = self.get_item_attribute(attr)
 		elif isinstance(attr, Attr):
-			new_attr = hive.get_item_attribute(attr.name)
+			new_attr = self.get_item_attribute(attr.name)
 		else:
 			raise Error('Invalid type for attribute name')
 
@@ -419,3 +469,182 @@ class Attr(HiveAttribute):
 
 	def __repr__(self):
 		return f"<Apis.Hive.Item.Attr: {self}>"
+
+
+class EventServer:
+	"""Class used to access the EventServer (and Chronical) in an APIS HIVE instance"""
+
+	class Datatype:
+		def __init__(self, owner, id, name):
+			self.owner = owner
+			self.id = id
+			self.name = name
+
+	class EventSource:
+		def __init__(self, owner, id, name, nodeid = None):
+			self.owner = owner
+			self.id = id
+			self.name = name
+			if nodeid is None:
+				all = owner.api.GetSourceAttributes(id)
+				for a in all:
+					if a.Id == owner.attributes["UA_NODEID"]:
+						nodeid = a.Value
+						break
+			self.nodeid = nodeid
+
+	class EventType:
+		def __init__(self, owner, id, name, parent, flags, nodeid = None):
+			self.owner = owner
+			self.id = id
+			self.name = name
+			self.parent = parent
+			self.flags = flags
+			if nodeid is None:
+				all = owner.api.GetEventTypeAttributes(id)
+				for a in all:
+					if a.Id == owner.attributes["UA_NODEID"]:
+						nodeid = a.Value
+						break
+			self.nodeid = nodeid
+
+		def get_fields(self, inherited = False):
+			return self.owner.api.GetEventFields(self.id, inherited)
+
+	class EventField:
+		def __init__(self, owner, id, name, eventtype, vt, flags):
+			self.owner = owner
+			self.id = id
+			self.name = name
+			self.eventtype = eventtype
+			self.vt = vt
+			self.flags = flags
+
+	def __init__(self, hive, api):
+		self.hive = hive
+		self.api = api
+		self.browse_flags = Prediktor.APIS.Hive.EventSearchOptions
+		self.attributes = {a.Name:a.Id for a in api.GetAttributeTypes()}
+	
+	def get_config(self):
+		result = {}
+		for obj in self.api.GetOptions():
+			result[obj.Name] = obj.Value
+		return result
+
+	def get_datatypes(self) -> List[Datatype]:
+		tmp = self.api.GetEventDataTypes()
+		result = []
+		for i in tmp:
+			result.append(EventServer.Datatype(self, i.Datatype, i.Name))
+		return result
+
+	def get_eventtypes(self) -> List[EventType]:
+		id = 1
+		result = []
+		while (True):
+			try:
+				tmp = self.api.GetEventType(id)
+			except Prediktor.APIS.Hive.HiveException as e:
+				if (e.HResult != -536870906):
+					print(f"Unexpected error: {e}")
+				break
+			result.append(EventServer.EventType(self, tmp.Id, tmp.Name, tmp.ParentId, tmp.Flags))
+			id += 1
+		return result
+
+	def get_eventfields(self) -> List[EventField]:
+		id = 1
+		result = []
+		while (True):
+			try:
+				tmp = self.api.GetEventField(id)
+			except Prediktor.APIS.Hive.HiveException as e:
+				if (e.HResult != -536870906):
+					print(f"Unexpected error: {e}")
+				break
+			result.append(EventServer.EventField(self, tmp.Id, tmp.Name, tmp.EventTypeId, tmp.Datatype, tmp.Flags))
+			id += 1
+		return result
+
+	def browse(self, pattern, flags, max_count = 1000, parent=0) -> List[EventSource]:
+		tmp = self.api.FindSources(parent, flags, pattern, max_count, None, None)
+		return [EventServer.EventSource(self, s.Id, s.Path) for s in tmp]
+
+	def query(self, starttime, endtime, eventsource, eventtype, filter, maxrows = 1000):
+		if isinstance(eventsource, Prediktor.APIS.Hive.EventSourcePath):
+			eventsource = eventsource.Id
+		list = Prediktor.APIS.Hive.EventServer.EventList()
+		fields = System.Array[System.Int32]([1,2,3,4,5,6,7,8])
+		batchsize = 65535
+		if (batchsize > maxrows):
+			batchsize = maxrows
+		qry = self.api.QueryFirst2(list, True, fm_pydatetime(starttime), fm_pydatetime(endtime), eventsource, eventtype, 0, 0, 0, 1000, filter, batchsize, fields)
+		more = qry.MoreData
+		while more and list.Count < maxrows:
+			more = self.api.QueryNext(qry.Handle)
+			count = list.Count
+		self.api.QueryDone(qry.Handle)
+		return list.Detach()
+
+class EndpointList:
+	"""Class used to access the EventServer (and Chronical) in an APIS HIVE instance"""
+	def __init__(self, hive, api):
+		self.hive = hive
+		self.api = api
+
+	def __len__(self):
+		return len(self.all)
+
+	def __getitem__(self, key):
+		return all[key]
+
+	@property
+	def all(self):
+		return [Endpoint(self, self.api.GetEndpointData(e.Id)) for e in self.api.GetApisEndpointInfos()]
+
+	def add(self):
+		tmp = self.api.AddEndpoint()
+		return Endpoint(self, self.api.GetEndpointData(tmp.Id))
+
+class Endpoint:
+	def __init__(self, eplist, api):
+		self.eplist = eplist
+		self.api = api
+		self.props = {p.Name:p for p in api.Properties}
+		self.writer = Prediktor.APIS.Hive.EndpointWriter(self.api.Id)
+
+	def __getitem__(self, key):
+		return self.props[key]
+
+	def __setitem__(self, key, value):
+		prop = self[key]
+		prop.Value = value
+		self.writer.AddPropVal(prop.Id, prop.Value)
+
+	def __len__(self):
+		return len(self.props)
+
+	def __iter__(self):
+		return self.props()
+
+	@property
+	def properties(self):
+		return self.props
+
+	def get_property(self, key):
+		return self.props[key]
+
+	def save(self):
+		self.eplist.api.WriteEndpointData(self.writer)
+
+class EventBroker:
+	def __init__(self, hive):
+		self.hive = hive
+		self.api = hive.api.GetEventBroker()
+
+	def connect(self, evt, cmds):
+		cmds = [c.Id for c in cmds]
+		cmds = System.Array[Prediktor.APIS.Hive.ICommandId](cmds)
+		tmp = Prediktor.APIS.HiveWrapper.EventConnection(evt.Id, cmds)
+		self.api.AddCommands([tmp])

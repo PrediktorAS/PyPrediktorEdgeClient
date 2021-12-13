@@ -1,7 +1,8 @@
-__all__ = 'nstance_identifiers', 'list_instances', 'get_instance', 'remove_instance', 'add_instance', 'HiveInstance'
+__all__ = 'instance_identifiers', 'list_instances', 'get_instance', 'remove_instance', 'add_instance', 'HiveInstance'
 
 from .util import Prediktor, Error
 import os
+import time
 import clr
 import uuid
 from System import Action, Func
@@ -90,15 +91,30 @@ class HiveInstance:
     name = property(lambda self:self.api.InstanceName)
     CLSID = property(lambda self:uuid.UUID(self.api.CLSID.ToString()))
 
+    def start(self):
+        if not self.running:
+            self.api.Start()
+            while not self.running:
+                time.sleep(0.1)
+
+    def stop(self):
+        if self.running:
+            self.api.Stop()
+            while self.running:
+                time.sleep(0.1)
+
     def _running(self):
         return self.api.IsRunning
 
     def _set_running(self, wanted:bool):
         current = self.api.IsRunning
         if wanted and not current:
-            os.popen(f"sc start {self.name}")
+            self.start()
         elif not wanted and current:
-            os.popen(f"sc stop {self.name}")
+            self.stop()
 
     running = property(_running, _set_running, doc="get or set the running state of the instance")
 
+    @property
+    def service(self):
+        return self.api.IsService
