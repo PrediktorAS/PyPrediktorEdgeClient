@@ -1,7 +1,7 @@
 __all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT', 'EventServer'
 
 from itertools import chain
-from typing import Tuple, List
+from typing import AnyStr, Tuple, List
 import pkg_resources
 import clr
 import functools
@@ -375,6 +375,12 @@ class Item:
 		for obj in self.module.api.GetItemTypes():
 			if (obj.ItemTypeID == self.api.ItemTypeID):
 				return obj
+
+	def has_attr(self, name: AnyStr) -> bool:
+		for attr in self.api.GetAttributes():
+			if attr.Name == name:
+				return True
+		return False
 
 	def get_attr(self, key):
 		"""Return the attr with the specified name or index"""

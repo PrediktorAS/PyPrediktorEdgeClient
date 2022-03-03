@@ -113,10 +113,11 @@ def import_apis_asm():
     # Check and add  references to each dll-file
     for dll_name in dlls:
         dll_path = os.path.join(loc, dll_name)
-        if not os.path.exists(dll_path):
+        if os.path.exists(dll_path):
+            clr.AddReference(dll_path)
+            imported_assemblies.append(dll_path)
+        elif dll_name != 'SentinelRMSCore.dll':
             raise Exception(f"DLL {dll_name} is not present")
-        clr.AddReference(dll_path)
-        imported_assemblies.append(dll_path)
 
     return loc
 
