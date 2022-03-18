@@ -10,7 +10,7 @@ import collections
 import System
 
 from .util import (
-	AttrFlags, BaseContainer, Prediktor, Error, ItemVQT, Quality, _normalize_arguments, to_pydatetime, 
+	AttrFlags, BaseContainer, Prediktor, Error, ItemVQT, Quality, _normalize_arguments, _normalize_input, to_pydatetime, 
 	fm_pydatetime, HiveAttribute)
 
 from .hiveservices import HiveInstance
@@ -99,9 +99,9 @@ class Hive:
 			return Module(self, modules[key])
 
 		if isinstance(key, str):
-			search_key = key.casefold()
+			search_key = _normalize_input(key)
 			for mod in modules:
-				if mod.Name.casefold() == search_key:
+				if _normalize_input(mod.Name) == search_key:
 					return Module(self, mod)
 
 			raise Error(f"Invalid module name: '{key}'")
@@ -121,9 +121,9 @@ class Hive:
 		"""
 		Get an attribute that can be used to set on an Item
 		"""
-		search_key = name.casefold()
+		search_key = _normalize_input(name)
 		for attr in self._get_attrib():
-			if attr.Name.casefold() == search_key:
+			if _normalize_input(attr.Name) == search_key:
 				return Attr(None, attr)
 		raise Error(f'Attribute {name} not found.')
 
@@ -138,9 +138,9 @@ class Hive:
 		"""Return a list containing the name of all known module+types. These
 		names can be used as input to Hive.add_module().
 		"""
-		search_key = type_name.casefold()
+		search_key = _normalize_input(type_name)
 		for mt in self._modtypes.values():
-			if mt.ClassName.casefold() == search_key:
+			if _normalize_input(mt.ClassName) == search_key:
 				return ModuleType(self,  mt)
 		else:
 			raise Error(f"Unknown module type {type_name}")
@@ -170,12 +170,12 @@ class Hive:
 
 	def find_module_index(self, mod_name):
 		if isinstance(mod_name, Module):
-			search_name = mod_name.name.casefold()
+			search_name = _normalize_input(mod_name.name)
 		else:
-			search_name = mod_name.casefold()
+			search_name = _normalize_input(mod_name)
 
 		for i, mod in enumerate(self.modules):
-			if mod.name.casefold() == search_name:
+			if _normalize_input(mod.name) == search_name:
 				return i
 
 		raise Error(f"Module not found: {mod_name}")
@@ -272,7 +272,7 @@ class Module(BaseContainer):
 		"Set several properties at once"
 		new_val = _normalize_arguments(properties, kw)
 		for raw_prop in self.api.GetProperties():
-			prop_name = raw_prop.Name.casefold().replace(' ','')
+			prop_name = _normalize_input(raw_prop.Name, True)
 			if prop_name in new_val:
 				prop = Property(self, raw_prop)
 				prop.value = new_val[prop_name]
@@ -295,9 +295,9 @@ class Module(BaseContainer):
 			return Item(self, self.api.GetItems()[key])
 
 		if isinstance(key, str):
-			search_key = key.casefold()
+			search_key = _normalize_input(key)
 			for obj in self.api.GetItems():
-				if obj.Name.casefold().replace(' ','') == key:
+				if _normalize_input(obj.Name, True) == key:
 					return Item(self, obj)
 			raise Error(f"Invalid item name: '{key}'")
 
@@ -309,9 +309,9 @@ class Module(BaseContainer):
 		return list(self.api.GetItemTypes())
 
 	def get_item_type(self, name: str):
-		search_key = name.casefold()
+		search_key = _normalize_input(name)
 		for item_type in self.api.GetItemTypes():
-			if item_type.Name.casefold() == search_key:
+			if _normalize_input(item_type.Name) == search_key:
 				return item_type
 		raise Error(f'Unknown item type {name}')
 
@@ -349,9 +349,9 @@ class Module(BaseContainer):
 		return items
 
 	def _get_property(self, name:str):
-		norm_name = name.casefold()
+		norm_name = _normalize_input(name)
 		for obj in self.api.GetProperties():
-			if obj.Name.casefold() == norm_name:
+			if _normalize_input(obj.Name) == norm_name:
 				return obj
 		raise Error(f"property '{name}' not found")
 
@@ -409,7 +409,7 @@ class Item(BaseContainer):
 		"Set several attributes at once"
 		new_val = _normalize_arguments(attributes, kw)
 		for raw_attr in self.api.GetAttributes():
-			attr_name = raw_attr.Name.casefold().replace(' ','')
+			attr_name = _normalize_input(raw_attr.Name, True)
 			if attr_name in new_val:
 				attr = Attr(self, raw_attr)
 				attr.value = new_val[attr_name]
@@ -445,9 +445,9 @@ class Item(BaseContainer):
 		if isinstance(key, Attr):
 			return key
 		if isinstance(key, str):
-			norm_name = key.casefold()
+			norm_name = _normalize_input(key)
 			for attr in self.api.GetAttributes():
-				if attr.Name.casefold().replace(' ','') == norm_name:
+				if _normalize_input(attr.Name, True) == norm_name:
 					return Attr(self, attr)
 		if isinstance(key, int):
 			return Attr(self, self.api.GetAttributes()[key])
@@ -455,13 +455,13 @@ class Item(BaseContainer):
 
 
 	def get_item_attribute(self, attrname: str):
-		norm_name = attrname.casefold()
+		norm_name = _normalize_input(attrname)
 		for attr in self.api.GetAttributes():
-			if attr.Name.casefold().replace(' ','') == norm_name:
+			if _normalize_input(attr.Name, True) == norm_name:
 				return Attr(self, attr)
 		tmpl = self.itemtype.GetNewItemTemplate("")
 		for attr in tmpl.Attributes:
-			if attr.Name.casefold() == norm_name:
+			if _normalize_input(attr.Name) == norm_name:
 				return Attr(self, attr)
 		return self.module.hive.get_item_attribute(attrname)
 

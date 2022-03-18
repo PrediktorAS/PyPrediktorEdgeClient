@@ -265,6 +265,15 @@ def _normalize_arguments(attr, kw):
     new_attr = list((attr or {}).items()) + list(kw.items())
     return dict((k.casefold(), v) for k,v in new_attr)
 
+def _normalize_input(input: str, remove_whitespaces = False) -> str:
+    """Internal function. Strips whitespaces and lowers case. Remove all whitespaces
+    if needed
+    """
+    output = input.casefold().strip()
+    if remove_whitespaces:
+        output = output.replace(' ', '')
+    return output
+
 class Error(Exception):
 	"""Generic exception used to report problems in Apis.py"""
 	def __init__(self, msg):
