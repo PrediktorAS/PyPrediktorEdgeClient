@@ -80,7 +80,8 @@ class Honeystore:
 
 		if isinstance(key, str):
 			for obj in objs:
-				if str(obj) == key:
+				search_key = key.casefold()
+				if obj.Name.casefold() == search_key:
 					return Database(self, obj)
 			raise Error(f"Invalid module name: '{key}'")
 
