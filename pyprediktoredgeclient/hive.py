@@ -1,7 +1,7 @@
 __all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT', 'EventServer'
 
 from itertools import chain
-from typing import AnyStr, Tuple, List
+from typing import Tuple, List, Union, AnyStr
 import pkg_resources
 import clr
 import functools
@@ -9,8 +9,12 @@ import datetime
 import collections
 import System
 
-from .util import AttrFlags, Prediktor, Error, ItemVQT, Quality, to_pydatetime, fm_pydatetime, HiveAttribute
+from .util import (
+	AttrFlags, BaseContainer, Prediktor, Error, ItemVQT, Quality, _normalize_arguments, _normalize_input, to_pydatetime, 
+	fm_pydatetime, HiveAttribute)
+
 from .hiveservices import HiveInstance
+from .semantic_service import SemanticService
 
 class Hive:
 	"""Class used to access one ApisHive instance. The instance is a
@@ -54,6 +58,14 @@ class Hive:
 	def __iter__(self):
 		return iter(self.modules)
 
+	def __contains__(self, mod):
+		try:
+			return isinstance(self.get_module(mod), Module)
+		except Error:
+			return False
+
+
+
 	@property
 	def name(self):
 		return self.api.ConfigurationName
@@ -81,15 +93,16 @@ class Hive:
 		if isinstance(key, Module):
 			return key
 
-		objs = self.api.GetModules()
+		modules = self.api.GetModules()
 
 		if isinstance(key, int):
-			return Module(self, objs[key])
+			return Module(self, modules[key])
 
 		if isinstance(key, str):
-			for obj in self.api.GetModules():
-				if str(obj) == key:
-					return Module(self, obj)
+			search_key = _normalize_input(key)
+			for mod in modules:
+				if _normalize_input(mod.Name) == search_key:
+					return Module(self, mod)
 
 			raise Error(f"Invalid module name: '{key}'")
 		raise Error(f"Invalid index type: {type(key).__name__}")
@@ -108,8 +121,9 @@ class Hive:
 		"""
 		Get an attribute that can be used to set on an Item
 		"""
+		search_key = _normalize_input(name)
 		for attr in self._get_attrib():
-			if attr.Name == name:
+			if _normalize_input(attr.Name) == search_key:
 				return Attr(None, attr)
 		raise Error(f'Attribute {name} not found.')
 
@@ -124,14 +138,16 @@ class Hive:
 		"""Return a list containing the name of all known module+types. These
 		names can be used as input to Hive.add_module().
 		"""
+		search_key = _normalize_input(type_name)
 		for mt in self._modtypes.values():
-			if mt.ClassName == type_name:
+			if _normalize_input(mt.ClassName) == search_key:
 				return ModuleType(self,  mt)
 		else:
 			raise Error(f"Unknown module type {type_name}")
 
 
-	def add_module(self, module_type, name=None, properties: dict = None):
+
+	def add_module(self, module_type, name:str=None, properties: dict = None, **kw):
 		"""Create and return a new Hive.Module in the Hive.
 
 		Arguments:
@@ -146,24 +162,28 @@ class Hive:
 		if name is not None:
 			module_type.api.InstanceName = name
 
-		obj = self.api.AddModule(module_type.api)
-		mod = Module(self, obj)
-		if not properties is None:
-			for k,v in properties.items():
-				mod.get_property(k).value = v
+		raw_mod = self.api.AddModule(module_type.api)
+		mod = Module(self, raw_mod)
+		mod.set_properties(properties, **kw)
 		mod.api.ApplyCurrentRunningState()
 		return mod
 
-	def find_module_index(self, name):
-		for i in range(len(self.modules)):
-			if self.modules[i].name.lower() == name.lower():
-				return i
-		raise Error(f"Module not found: {name}")
+	def find_module_index(self, mod_name):
+		if isinstance(mod_name, Module):
+			search_name = _normalize_input(mod_name.name)
+		else:
+			search_name = _normalize_input(mod_name)
 
-	def get_module(self, key):
-		if isinstance(key, str):
-			key = self.find_module_index(key)
-		return self.modules[key]
+		for i, mod in enumerate(self.modules):
+			if _normalize_input(mod.name) == search_name:
+				return i
+
+		raise Error(f"Module not found: {mod_name}")
+
+	# def get_module(self, key):
+	# 	if isinstance(key, str):
+	# 		key = self.find_module_index(key)
+	# 	return self.modules[key]
 
 	def get_values(self, items, since=None):
 		"""
@@ -194,6 +214,10 @@ class Hive:
 
 		return [pack_result(i) for i in range(len(h))]
 
+	@property
+	def semantics_service(self):
+		return SemanticService(self)
+
 class ModuleType:
 	"""
 	The class wraps an Apis module-type
@@ -207,8 +231,7 @@ class ModuleType:
 	GUID = property(lambda self:self.api.GUID)
 
 
-
-class Module:
+class Module(BaseContainer):
 	"""Class used to access a specific module in an ApisHive instance. The
 	Module is a wrapper around Prediktor.APIS.HiveWrapper.Module, which can
 	be accessed through the 'Module.api' member.
@@ -236,7 +259,7 @@ class Module:
 		return self.api.GetItems()
 
 	def __getattr__(self, key):
-		self.get_property(key).value
+		return self.get_property(key).value
 
 	def __setattr__(self, key, value):
 		try:
@@ -244,6 +267,15 @@ class Module:
 			prop.value = value
 		except Error:
 			super().__setattr__(key, value)
+
+	def set_properties(self, properties: dict = None, **kw):
+		"Set several properties at once"
+		new_val = _normalize_arguments(properties, kw)
+		for raw_prop in self.api.GetProperties():
+			prop_name = _normalize_input(raw_prop.Name, True)
+			if prop_name in new_val:
+				prop = Property(self, raw_prop)
+				prop.value = new_val[prop_name]
 
 	@property
 	def name(self):
@@ -263,8 +295,9 @@ class Module:
 			return Item(self, self.api.GetItems()[key])
 
 		if isinstance(key, str):
+			search_key = _normalize_input(key)
 			for obj in self.api.GetItems():
-				if obj.Name == key:
+				if _normalize_input(obj.Name, True) == key:
 					return Item(self, obj)
 			raise Error(f"Invalid item name: '{key}'")
 
@@ -275,34 +308,50 @@ class Module:
 		"""Return the available item types for this  module"""
 		return list(self.api.GetItemTypes())
 
-	def get_item_type(self, name):
+	def get_item_type(self, name: str):
+		search_key = _normalize_input(name)
 		for item_type in self.api.GetItemTypes():
-			if item_type.Name == name:
+			if _normalize_input(item_type.Name) == search_key:
 				return item_type
 		raise Error(f'Unknown item type {name}')
 
-	def add_item(self, item_type, item_name, attrs: dict = None):
-		"""Add a new item to the hive"""
-		if isinstance(item_type, str):
-			item_type = self.get_item_type(item_type)
-		
-		template = item_type.GetNewItemTemplate(item_name)
-		item, item_error, attr_error, check = self.api.AddItems([template], None, None, None)
+	def _add_items(self, template):
+		raw_items, item_error, attr_error, check = self.api.AddItems(template, None, None, None)
 		if check:
 			for i, a_e in enumerate(attr_error):
 				if a_e > 0:
 					t_attr = template.Attributes[i]
 					raise Error(f"Error setting {t_attr.Name}")
+		return [Item(self, it) for it in raw_items]
 
-		item = Item(self, item[0])
-		if not attrs is None:
-			for k, v in attrs.items():
-				item.add_attr(k, v)
+	def add_item(self, item_type, item_name:str, attrs: dict = None, **kw):
+		"""Add a new item to the hive"""
+		if isinstance(item_type, str):
+			item_type = self.get_item_type(item_type)
+		
+		template = item_type.GetNewItemTemplate(item_name)
+		item = self._add_items([template])[0]
+		item.set_attributes(attrs, **kw)
 		return item
 
-	def _get_property(self, name):
+	def add_items(self, item_type, count:Union[int,range], namefmt:str, attrs: dict = None, **kw):
+		if isinstance(item_type, str):
+			item_type = self.get_item_type(item_type)
+		
+		if isinstance(count, int):
+			count = range(count)
+
+		templates = [item_type.GetNewItemTemplate(namefmt.format(i)) for i in count]
+		items = self._add_items(templates)
+		if attrs or kw:
+			for item in items:
+				item.set_attributes(attrs, **kw)
+		return items
+
+	def _get_property(self, name:str):
+		norm_name = _normalize_input(name)
 		for obj in self.api.GetProperties():
-			if obj.Name == name:
+			if _normalize_input(obj.Name) == norm_name:
 				return obj
 		raise Error(f"property '{name}' not found")
 
@@ -310,7 +359,7 @@ class Module:
 	def properties(self):
 		return [ Property(self, obj) for obj in self.api.GetProperties() ]
 
-	def get_property(self, name):
+	def get_property(self, name:str):
 		return Property(self, self._get_property(name))
 
 	def delete(self):
@@ -324,7 +373,7 @@ class Property(HiveAttribute):
 	def __repr__(self):
 		return f"<Apis.Hive.Module.Property: {self}>"
 
-class Item:
+class Item(BaseContainer):
 	def __init__(self, module, api):
 		super().__setattr__('module', module)		#due to __settattr__
 		if (api.Handle == -1):
@@ -355,6 +404,15 @@ class Item:
 			attr.value = value
 		except Error:
 			super().__setattr__(key, value)
+
+	def set_attributes(self, attributes: dict = None, **kw):
+		"Set several attributes at once"
+		new_val = _normalize_arguments(attributes, kw)
+		for raw_attr in self.api.GetAttributes():
+			attr_name = _normalize_input(raw_attr.Name, True)
+			if attr_name in new_val:
+				attr = Attr(self, raw_attr)
+				attr.value = new_val[attr_name]
 
 	def __iter__(self):
 		return self.api.GetAttributes()
@@ -387,8 +445,9 @@ class Item:
 		if isinstance(key, Attr):
 			return key
 		if isinstance(key, str):
+			norm_name = _normalize_input(key)
 			for attr in self.api.GetAttributes():
-				if attr.Name == key:
+				if _normalize_input(attr.Name, True) == norm_name:
 					return Attr(self, attr)
 		if isinstance(key, int):
 			return Attr(self, self.api.GetAttributes()[key])
@@ -396,12 +455,13 @@ class Item:
 
 
 	def get_item_attribute(self, attrname: str):
+		norm_name = _normalize_input(attrname)
 		for attr in self.api.GetAttributes():
-			if attr.Name == attrname:
+			if _normalize_input(attr.Name, True) == norm_name:
 				return Attr(self, attr)
 		tmpl = self.itemtype.GetNewItemTemplate("")
 		for attr in tmpl.Attributes:
-			if attr.Name == attrname:
+			if _normalize_input(attr.Name) == norm_name:
 				return Attr(self, attr)
 		return self.module.hive.get_item_attribute(attrname)
 

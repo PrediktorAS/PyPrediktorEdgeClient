@@ -1,9 +1,13 @@
+import chunk
+from platform import node
+import uuid
 import pkg_resources
 
 from datetime import datetime
 import functools
 import collections
 import os
+import io
 import sys
 from typing import NamedTuple, Any, List
 import winreg
@@ -123,8 +127,6 @@ def import_apis_asm():
 
 importlocation = import_apis_asm()
 
-
-
 # At this point, we should be able to import "Prediktor" from the DLL
 import Prediktor
 
@@ -141,6 +143,7 @@ def prog_id(name=None):
 AttrFlags = Prediktor.APIS.Hive.Flags
 
 RunState = Prediktor.APIS.Hive.ApisRunState
+
 
 class OPC_quality(Enum):
     bad = 0
@@ -233,17 +236,16 @@ class RunningMode(Enum):
 	Disabled = 5		# The database has been disabled. 
 	OnlineNoCache = 6	# The database is on-line without caching operation. Reading and imports can be done, no write	
 
-
 def get_enum_value(enum, key):
 	if isinstance(key, enum):
 		return key.value
 	elif isinstance(key, str):
+		norm_key = key.casefold()
 		for e in enum:
-			if e.name==key:
+			if e.name.casefold()==norm_key:
 				return e.value
 		raise KeyError(f'No match for {key} found in {enum}.')
 	raise Error('Unknown key type. Expected str or enum.')
-
 
 def to_pydatetime(dt: System.DateTime):
     "convert a .NET DateTime to a python datetime object"
@@ -254,6 +256,23 @@ def fm_pydatetime(dt: datetime):
     tmp = System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
     millis = int(dt.microsecond / 1000)
     return tmp.AddMilliseconds(millis)
+
+def _normalize_arguments(attr, kw):
+    """Internal function. Normalize arguments as dicts {name:value} and return new dict
+    with lowercase names. If the Attr argument is None, an empty dict is returned instead.
+    The argument kw must be a dict.
+    """
+    new_attr = list((attr or {}).items()) + list(kw.items())
+    return dict((k.casefold(), v) for k,v in new_attr)
+
+def _normalize_input(input: str, remove_whitespaces = False) -> str:
+    """Internal function. Strips whitespaces and lowers case. Remove all whitespaces
+    if needed
+    """
+    output = input.casefold().strip()
+    if remove_whitespaces:
+        output = output.replace(' ', '')
+    return output
 
 class Error(Exception):
 	"""Generic exception used to report problems in Apis.py"""
@@ -369,13 +388,9 @@ class HiveAttribute(BaseAttribute):
 	def __str__(self):
 		return f"{self.name}={self.value}"
 
-	def get_eunumeration(self):
-		return self.api.GetEnumeration()
 
-
-
-
-
+class BaseContainer:
+    pass
 
 
 
