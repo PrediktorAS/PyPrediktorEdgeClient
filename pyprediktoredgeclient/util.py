@@ -9,9 +9,9 @@ import collections
 import os
 import io
 import sys
-from typing import NamedTuple, Any, List
+from typing import NamedTuple, Any, List, Optional, Dict, Union
 import winreg
-from enum import Enum
+from enum import Enum, IntEnum
 
 import clr
 import System
@@ -145,7 +145,7 @@ AttrFlags = Prediktor.APIS.Hive.Flags
 RunState = Prediktor.APIS.Hive.ApisRunState
 
 
-class OPC_quality(Enum):
+class OPC_quality(IntEnum):
     bad = 0
     badConfigurationError = 4
     badNotConnected = 8
@@ -250,6 +250,7 @@ def get_enum_value(enum, key):
 def to_pydatetime(dt: System.DateTime):
     "convert a .NET DateTime to a python datetime object"
     tmp = datetime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, dt.Millisecond * 1000)
+    return tmp
 
 def fm_pydatetime(dt: datetime):
     "convert a python datetime object to .NET DateTime object"
@@ -305,6 +306,8 @@ class Quality(int):
     def factory(name):
         if isinstance(name, Quality):
             return name
+        if isinstance(name, int):
+            return Quality(name)
         if isinstance(name, str):
             return Quality(OPC_quality[name])
         if isinstance(name, collections.Sequence):
@@ -327,6 +330,34 @@ class ItemVQT(NamedTuple):
     value: Any
     quality: Quality
     time: datetime
+
+    @staticmethod
+    def from_dict(values:Dict[str, object], quality:Optional[Union[int,Quality, str]] = None, time:Optional[Union[datetime, str]]=None)->List["ItemVQT"]:
+        """
+        Return a list of ItemVQT objects from a dictionary
+
+        Arguments:
+        values: Values to set. Dictionary itemId:value
+        quality: Optional string, int or Quality object. The override quality to set. Default: 192 (good)
+        time: The timestamp to set on the items. Default: present UTC-time
+        """
+        if time is None:
+            t = datetime.utcnow()
+        elif isinstance(time, str):
+            t = datetime.fromisoformat(time)
+        else:
+            t = time
+
+
+        if quality is None:
+            q = Quality()
+        else:
+            q = Quality.factory(quality)
+
+        def inner():
+            for itemid,val in values.items():
+                yield ItemVQT(itemid, val, q, t) 
+        return list(inner())
 
 class Timeseries(NamedTuple):
     """
@@ -357,6 +388,8 @@ class BaseAttribute:
 				if val==v:
 					return attr_enum.Names[i]
 			raise Error(f"Enumerated property with value '{v}' not found on {self.name}")
+		if isinstance(v, System.DateTime):
+			return to_pydatetime(v)
 		return v
 
 	def set_value(self, value):
@@ -365,12 +398,18 @@ class BaseAttribute:
 
 		if self.flag & AttrFlags.Enumerated:
 			attr_enum = self.api.GetEnumeration()
+            
+			normval = str(value).lower() #Normalized value
 			for i,val in enumerate(attr_enum.Names):
-				if str(val).lower()==str(value).lower():
+				if str(val).lower()==normval:
 					self.api.Value = attr_enum.Values[i]
 					break
 			else:
 				raise Error(f"Enumerated property for {value} not found on attribute {self.name}.")
+		elif isinstance(self.api.Value, System.DateTime):
+			if isinstance(value, str):
+				value = datetime.fromisoformat(value)
+			self.api.Value = fm_pydatetime(value)
 		else:
 			try:
 				self.api.Value = value
@@ -379,7 +418,6 @@ class BaseAttribute:
 				raise Error(f"Exception from Apis {e}")
 
 	value = property(get_value, set_value, doc="Access the property value")
-
 
 class HiveAttribute(BaseAttribute):
 	"""
