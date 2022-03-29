@@ -1,11 +1,14 @@
 __all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT', 'EventServer'
 
+from argparse import ArgumentError
 from itertools import chain
-from typing import Tuple, List, Union, AnyStr
+from optparse import Option
+from typing import Optional, Tuple, List, Union, AnyStr, Dict
+from xmlrpc.client import DateTime
 import pkg_resources
 import clr
 import functools
-import datetime
+from datetime import datetime
 import collections
 import System
 
@@ -185,7 +188,7 @@ class Hive:
 	# 		key = self.find_module_index(key)
 	# 	return self.modules[key]
 
-	def get_values(self, items, since=None):
+	def get_values(self, items, since=None)->List[ItemVQT]:
 		"""
 		Get a list of value-quality-itmestamps from the connected hive
 
@@ -214,6 +217,36 @@ class Hive:
 
 		return [pack_result(i) for i in range(len(h))]
 
+
+	def set_values(self, set_vals : List[ItemVQT]):
+		"""
+		Set several values or value/quality/timestamps to items.
+
+		Arguments:
+		values: Dict of item-id keys and values. Values can either be single object values or tuples representing a VQT
+		        If a single value is used or andy of the quality/timestamps are None, the arguments given in timestamp 
+				or quality is used as a substitute.
+		def_time: the common timestamp to use if the timestamp is not supplied for each item.
+		quality: 
+		"""
+
+		handles = self.api.LookupItemHandles([v.item_id for v in set_vals])
+		h_in = System.Array[System.Int32](handles)
+		v_in = System.Array[System.Object]([v.value for v in set_vals])
+		q_in = System.Array[System.UInt16]([v.quality for v in set_vals])
+		t_in = System.Array[System.DateTime]([fm_pydatetime(v.time) for v in set_vals])
+		err_out =  System.Array[System.Int32]([])
+		check_out = System.Boolean(False)
+
+		self.api.WriteItemsEx(h_in, v_in, q_in, t_in, check_out, err_out)
+
+		if err_out:
+			errors = []
+			for (id, chk) in zip(set_vals.keys(), check_out):
+				if chk>0:
+					errors.append(f"Tag:{id}, error ({chk})")
+			raise ArgumentError(f"Error(s) during set_values: {'/'.join(errors)}")
+				
 	@property
 	def semantics_service(self):
 		return SemanticService(self)
