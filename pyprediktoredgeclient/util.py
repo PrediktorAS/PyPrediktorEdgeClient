@@ -293,14 +293,23 @@ class Quality(int):
 
 
     def __str__(self):
-        val = int(self)
-
-        da=val & 0xff
-        hda = val & 0x8fffff00
+        da, hda = self.get_codes()
 
         if not hda:
             return f"{OPC_quality_index[da]}"
         return f"{OPC_quality_index[da]} | {OPC_quality_index[hda]}"
+
+    @property
+    def isgood(self):
+        da, hda = self.get_codes()
+
+        if not hda:
+            return (da & 0xC0) > 0
+        return (da & 0xC0) > 0 and (hda & 0x000f0000) > 0
+
+    def get_codes(self):
+        val = int(self)
+        return val & 0xff, val & 0x8fffff00
 
     @staticmethod
     def factory(name):
@@ -365,7 +374,10 @@ class Timeseries(NamedTuple):
     """
     item_id: str
     hs_database: str
-    timeseries: List[VQT]
+    ts: List[VQT]
+
+    def __iter__(self):
+        return iter(self.ts)
 
 
 class BaseAttribute:
