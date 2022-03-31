@@ -8,13 +8,13 @@ from xmlrpc.client import DateTime
 import pkg_resources
 import clr
 import functools
-from datetime import datetime
+from datetime import datetime, timedelta
 import collections
 import System
 
 from .util import (
 	AttrFlags, BaseContainer, Prediktor, Error, ItemVQT, Quality, _normalize_arguments, _normalize_input, to_pydatetime, 
-	fm_pydatetime, HiveAttribute)
+	fm_pydatetime, HiveAttribute, VQT, Timeseries)
 
 from .hiveservices import HiveInstance
 from .semantic_service import SemanticService
@@ -129,6 +129,14 @@ class Hive:
 			if _normalize_input(attr.Name) == search_key:
 				return Attr(None, attr)
 		raise Error(f'Attribute {name} not found.')
+
+	def get_items(self, *itemids:List[str])->List["Item"]:
+		"""
+		Get a list of items from item-id's
+		"""
+		items = self.api.LookupItems(list(itemids))
+		return [Item(Module(self, it.Module), it) for it in items]
+
 
 	@property
 	def module_types(self):
@@ -556,9 +564,25 @@ class Item(BaseContainer):
 		new_ext_items = [item.GetAsExternalItem(i+1) for (i,item) in enumerate(items)]
 		self.api.SetExternalItems(new_ext_items)
 
+	def read_raw(self, start:Optional[datetime]=None, end:Optional[datetime]=None, maxpoints:int=1000):
+		tsapi = self.module.hive.api.GetTimeseriesAccess()
+		hndl = self.api.Handle
+		if not tsapi.IsItemLogged(hndl):
+			raise Error(f"Item {self.name} is not logged")
+
+		if start is None:
+			start = datetime.utcnow() - timedelta(hours=2)
+
+		if end is None:
+			end = datetime.utcnow()
+
+		ts = tsapi.ReadHistoryRaw(hndl, fm_pydatetime(start), fm_pydatetime(end), maxpoints, True)
+
+		ts = [VQT(v,Quality(q),to_pydatetime(t)) for v,q,t in zip(ts.Values, ts.Qualities, ts.Timestamps)]
+		return Timeseries(self.item_id, None, ts)
+		
+
 	external_items = property(get_externalitems,set_externalitems, doc="Set or get external items")
-
-
 
 
 class Attr(HiveAttribute):
