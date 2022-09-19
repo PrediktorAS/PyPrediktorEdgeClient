@@ -1,3 +1,6 @@
+v0.9.3
+- History read v/Aggregated items
+
 v0.7.0
 - Honeystore module added
 
