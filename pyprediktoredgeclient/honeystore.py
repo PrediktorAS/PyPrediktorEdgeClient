@@ -151,8 +151,9 @@ class Database:
 			return Item(self, self.api.GetItems()[key])
 
 		if isinstance(key, str):
+			nkey = key.casefold()
 			for obj in self.api.GetItems():
-				if obj.Name == key:
+				if obj.Name.casefold() == nkey:
 					return Item(self, obj)
 			raise Error(f"Invalid honeystore item name: '{key}'")
 

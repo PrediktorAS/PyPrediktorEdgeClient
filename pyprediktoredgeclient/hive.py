@@ -1,4 +1,4 @@
-__all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT', 'EventServer'
+__all__ = 'Instances', 'Error', 'Hive', 'Module', 'Attr', 'Property', 'Item', 'ItemVQT', 'EventServer', 'Aggregation', 'VQT'
 
 from argparse import ArgumentError
 from itertools import chain
@@ -13,8 +13,8 @@ import collections
 import System
 
 from .util import (
-	AttrFlags, BaseContainer, Prediktor, Error, ItemVQT, Quality, _normalize_arguments, _normalize_input, to_pydatetime, 
-	fm_pydatetime, HiveAttribute, VQT, Timeseries)
+	Aggregation, AttrFlags, BaseContainer, Prediktor, Error, ItemVQT, Quality, _normalize_arguments, _normalize_input, to_pydatetime, 
+	fm_pydatetime, fm_pytimedelta, HiveAttribute, VQT, Timeseries)
 
 from .hiveservices import HiveInstance
 from .semantic_service import SemanticService
@@ -492,7 +492,7 @@ class Item(BaseContainer):
 					return Attr(self, attr)
 		if isinstance(key, int):
 			return Attr(self, self.api.GetAttributes()[key])
-		raise Error(f"Invalid index: {repr(key)}")
+		raise Error(f"Invalid item attribute: {repr(key)}")
 
 
 	def get_item_attribute(self, attrname: str):
@@ -564,8 +564,9 @@ class Item(BaseContainer):
 		new_ext_items = [item.GetAsExternalItem(i+1) for (i,item) in enumerate(items)]
 		self.api.SetExternalItems(new_ext_items)
 
-	def read_raw(self, start:Optional[datetime]=None, end:Optional[datetime]=None, maxpoints:int=1000):
-		tsapi = self.module.hive.api.GetTimeseriesAccess()
+	external_items = property(get_externalitems,set_externalitems, doc="Set or get external items")
+
+	def _get_hist(self, tsapi, func, start, end, *extraparam):
 		hndl = self.api.Handle
 		if not tsapi.IsItemLogged(hndl):
 			raise Error(f"Item {self.name} is not logged")
@@ -576,13 +577,26 @@ class Item(BaseContainer):
 		if end is None:
 			end = datetime.utcnow()
 
-		ts = tsapi.ReadHistoryRaw(hndl, fm_pydatetime(start), fm_pydatetime(end), maxpoints, True)
+		return func(hndl, fm_pydatetime(start), fm_pydatetime(end), *extraparam)
 
-		ts = [VQT(v,Quality(q),to_pydatetime(t)) for v,q,t in zip(ts.Values, ts.Qualities, ts.Timestamps)]
-		return Timeseries(self.item_id, None, ts)
-		
+	def read_raw(self, start:Optional[datetime]=None, end:Optional[datetime]=None, maxpoints:int=1000):
+		"""
+		Read raw samples from the history database.
+		"""
+		tsapi = self.module.hive.api.GetTimeseriesAccess()
+		raw_ts = self._get_hist(tsapi, tsapi.ReadHistoryRaw, start, end, maxpoints, True)
+		return Timeseries.from_hive_TS(self.item_id, raw_ts)
 
-	external_items = property(get_externalitems,set_externalitems, doc="Set or get external items")
+	def read_agg(self, start:Optional[datetime]=None, end:Optional[datetime]=None, span:Optional[timedelta]=None, *aggregation:Optional[Aggregation]):
+		"""
+		Read aggregated data from the History database
+		"""
+		wspan = fm_pytimedelta(span)
+		agg = list(map(int, aggregation))
+		tsapi = self.module.hive.api.GetTimeseriesAccess()
+		err_out =  System.Array[System.Int32]([])
+		agg_ts, err = self._get_hist(tsapi, tsapi.ReadHistoryAggregated, start, end, wspan, agg, err_out)
+		return [Timeseries.from_hive_TS(self.item_id, ts) for ts in agg_ts]
 
 
 class Attr(HiveAttribute):

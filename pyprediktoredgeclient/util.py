@@ -3,7 +3,7 @@ from platform import node
 import uuid
 import pkg_resources
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import functools
 import collections
 import os
@@ -236,6 +236,34 @@ class RunningMode(Enum):
 	Disabled = 5		# The database has been disabled. 
 	OnlineNoCache = 6	# The database is on-line without caching operation. Reading and imports can be done, no write	
 
+class Aggregation(IntEnum):
+    NOAGGREGATE = 0   	    # No aggregates given
+    INTERPOLATIVE = 1	    # 1. order interpolated values. 
+    TOTAL = 2           	# The totalized value (time integral) of the data over the resample interval. 
+    AVERAGE = 3     	    # The average data over the resample interval. 
+    TIMEAVERAGE = 4    	    # The time weighted average data over the resample interval. 
+    COUNT = 5       	    # The number of raw values over the resample interval. 
+    STDEV = 6       	    # The standard deviation over the resample interval. 
+    MINIMUMACTUALTIME =	7   # The minimum value in the resample interval and the timestamp of the minimum value. 
+    MINIMUM = 8             # The minimum value in the resample interval.  
+    MAXIMUMACTUALTIME =	9   # The maximum value in the resample interval and the timestamp of the maximum value.  
+    MAXIMUM = 10            # The maximum value in the resample interval.  
+    START = 11      	    # The value at the beginning of the resample interval. The time stamp is the time stamp of the beginning of the interval.  
+    END = 12                # The value at the end of the resample interval. The time stamp is the time stamp of the end of the interval.  
+    DELTA = 13	            # The difference between the first and last value in the resample interval.  
+    REGSLOPE = 14	        # The slope of the regression line over the resample interval.  
+    REGCONST = 15       	# The intercept of the regression line over the resample interval. This is the value of the regression line at the start of the interval.  
+    REGDEV = 16	            # The standard deviation of the regression line over the resample interval.  
+    VARIANCE = 17	        # The variance over the sample interval.  
+    RANGE =	18              # The difference between the minimum and maximum value over the sample interval.  
+    DURATIONGOOD = 19  	    # The duration (in seconds) of time in the interval during which the data is good.  
+    DURATIONBAD = 20	    # The duration (in seconds) of time in the interval during which the data is bad.  
+    PERCENTGOOD = 21	    # The percent of data (1 equals 100 percent) in the interval= which has good quality.  
+    PERCENTBAD = 22 	    # The percent of data (1 equals 100 percent) in the interval= which has bad quality.  
+    WORSTQUALITY = 23	    # The worst quality of data in the interval.  
+    ANNOTATIONS = 24	    # The number of annotations in the interval.
+
+
 def get_enum_value(enum, key):
 	if isinstance(key, enum):
 		return key.value
@@ -257,6 +285,11 @@ def fm_pydatetime(dt: datetime):
     tmp = System.DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
     millis = int(dt.microsecond / 1000)
     return tmp.AddMilliseconds(millis)
+
+def fm_pytimedelta(td: timedelta):
+    "convert a python timedelta object to .NET TimeSpan object"
+    return System.TimeSpan(td.days, 0, 0, td.seconds, td.microseconds//1000)
+
 
 def _normalize_arguments(attr, kw):
     """Internal function. Normalize arguments as dicts {name:value} and return new dict
@@ -378,6 +411,11 @@ class Timeseries(NamedTuple):
 
     def __iter__(self):
         return iter(self.ts)
+
+    @staticmethod
+    def from_hive_TS(item_id, raw_ts):
+        ts = [VQT(v,Quality(q),to_pydatetime(t)) for v,q,t in zip(raw_ts.Values, raw_ts.Qualities, raw_ts.Timestamps)]
+        return Timeseries(item_id, None, ts)
 
 
 class BaseAttribute:
